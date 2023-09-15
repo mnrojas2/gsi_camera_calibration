@@ -39,7 +39,7 @@ def projectionError(points_3D, points_2D, rvec, tvec, camera_matrix, dist_coeff)
 np.random.seed(0)
 
 def main():
-    real_data = False
+    real_data = False # True
     if real_data == True:
         gpsArr = pd.read_csv('./videos/Coordenadas/Bundle2.csv')[['X','Y','Z']]
         
