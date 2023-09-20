@@ -23,7 +23,7 @@ def main():
     args = sys.argv[1:]
     # Extracting path of individual image stored in a given directory
     folder_location = args[0] #input("Name of the folder? : ")
-    images = glob.glob('./sets/'+folder_location+'/*.jpg')
+    images = glob.glob(f'./sets/{folder_location}/*.jpg')
     print(f"Searching images in ./sets/{folder_location}/")
 
     if len(args) >= 2 and args[1] in ('--scale','-s'):

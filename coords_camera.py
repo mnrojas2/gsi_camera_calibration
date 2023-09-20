@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import cv2
+import sys
 from scipy.spatial.transform import Rotation as R
 from astropy import units as u
 from tqdm import tqdm
@@ -17,7 +18,7 @@ def plot_vectors(**kwargs):
         ax.scatter(pts3D[:,0], pts3D[:,1], pts3D[:,2], zdir='z')
         ax.scatter(cam[0], cam[1], cam[2], zdir='z')
         ax.scatter(tgt[0], tgt[1], tgt[2], zdir='z')
-        ax.quiver(cam[0], cam[1], cam[2], -50*(cam[0]-tgt[0])/np.linalg.norm(cam-tgt), -50*(cam[1]-tgt[1])/np.linalg.norm(cam-tgt), -50*(cam[2]-tgt[2])/np.linalg.norm(cam-tgt))
+        ax.quiver(cam[0], cam[1], cam[2], -1000*(cam[0]-tgt[0])/np.linalg.norm(cam-tgt), -1000*(cam[1]-tgt[1])/np.linalg.norm(cam-tgt), -1000*(cam[2]-tgt[2])/np.linalg.norm(cam-tgt))
     except:
         print("3D data can't be plotted")
     ax2 = fig.add_subplot(122)
@@ -39,9 +40,9 @@ def projectionError(points_3D, points_2D, rvec, tvec, camera_matrix, dist_coeff)
 np.random.seed(0)
 
 def main():
-    real_data = True # True
+    real_data = False # True
     if real_data:
-        gpsArr = pd.read_csv('./videos/Coordenadas/Bundle2.csv')[['X','Y','Z']]
+        gpsArr = pd.read_csv('./videos/Coordenadas/Bundle.csv')[['X','Y','Z']]
         
         # # Point of interest
         POI = gpsArr.loc[['CODE45']].to_numpy()[0] # all
@@ -56,23 +57,23 @@ def main():
     
     else:
         N = 40
-        plot2d = np.random.randint(-20, 20, size=(N,2))
+        plot2d = 100*np.random.randint(-20, 20, size=(N,2))
         plot3d = np.hstack((plot2d, np.zeros((plot2d.shape[0],1))))
         POI = np.array([0, 0, 0])
         points_3D = plot3d - POI
 
-    # for i in tqdm(range(18+1)):
-    #     for j in tqdm(range(18+1), leave=False):
-    #         for k in tqdm(range(18+1), leave=False):
-    #             ang = np.array((-45+5*i, 135+5*j, -45+5*k))
+    # for i in tqdm(range(10+1)):
+    #     for j in tqdm(range(10+1), leave=False):
+    #         for k in tqdm(range(10+1), leave=False):
+    #             ang = np.array((-25+5*i, 155+5*j, -25+5*k))
     
     # Camera rotation
-    ang = np.array((0, 180, 0))
+    ang = np.array((float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3])))
     cam_r = R.from_euler('XYZ', ang, degrees=True) # 'XYZ' means intrinsic rotations (with respect of the same point/object and not a global reference) 
     rvec = cam_r.as_rotvec()
 
     # Camera position
-    cam_t = np.array((0, 0, 200)) # sim: 50 # irl points: 
+    cam_t = np.array((0, 0, float(sys.argv[4])))
     tvec = - np.dot(cam_r.as_matrix(), cam_t)
 
     # Camera matrix parameters
@@ -105,8 +106,8 @@ def main():
     # Plot 3D points, camera position and rotation and 2D points
     plot_vectors(p3D=points_3D, p2D=points_2D, camera=tvec, target=np.array([0,0,0]))
     # plt.savefig(f'camera_projections_sim/frame({i}-{j}-{k})-({ang[0]})({ang[1]})({ang[2]}).png')
-    # plt.close()
     plt.show()
+    plt.close()
 
     # Try to make a match of both to check if the solution is in itself consistent
     res, rvec0, tvec0 = cv2.solvePnP(points_3D, points_2D, camera_matrix, dist_coeff)
