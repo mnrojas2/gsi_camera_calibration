@@ -68,7 +68,7 @@ def main():
     
     # Camera rotation
     ang = np.array((0, 180, 0))
-    cam_r = R.from_euler('XYZ', ang, degrees=True)
+    cam_r = R.from_euler('XYZ', ang, degrees=True) # 'XYZ' means intrinsic rotations (with respect of the same point/object and not a global reference) 
     rvec = cam_r.as_rotvec()
 
     # Camera position
