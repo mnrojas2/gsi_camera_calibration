@@ -1,13 +1,23 @@
 import numpy as np
 import pandas as pd
 import cv2
-import sys
+import argparse
 from scipy.spatial.transform import Rotation as R
 from astropy import units as u
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-      
+
+# Initialize parser
+parser = argparse.ArgumentParser(description='Converts 3D points to 2D points by projecting them.')
+parser.add_argument('-r', '--rotation', type=float, nargs=3, metavar='N', help='Rotation vector values (in degrees)', default=[0, 180, 0])
+parser.add_argument('-t', '--translation', metavar='N', type=float, help='Translation in axis Z (of the camera) from the point of interest.', default=3300)
+parser.add_argument('--gsi', dest='real_data', action='store_true', default=False, help='Enables use of real data instead of simulated for the 3D points.')
+
+# Set the same random seed for all experiments
+np.random.seed(0)
+
+# Auxiliar function to plot the 3D space of the points from GSI with a simulated projection of those points using known intrinsic and extrinsic parameters of the camera.     
 def plot_vectors(**kwargs):
     fig = plt.figure(figsize=(12, 7))
     ax = fig.add_subplot(121, projection='3d')
@@ -27,31 +37,31 @@ def plot_vectors(**kwargs):
         ax2.scatter(pts2D[:,0,0], pts2D[:,0,1])
     except:
         print("2D data can't be plotted")
-            
+
+# Auxiliar function to calculate the RMSE between 2D points and simulated 2D points given intrinsic and extrinsic parameters of the camera.        
 def projectionError(points_3D, points_2D, rvec, tvec, camera_matrix, dist_coeff):
     proj = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
     proj = proj.reshape(proj.shape[0], proj.shape[-1])
     res = proj - points_2D.reshape(points_2D.shape[0], points_2D.shape[-1])
 
     rms = np.sqrt(np.sum(res**2)/len(res))
-
     return rms
 
-np.random.seed(0)
-
+# Main function
 def main():
-    real_data = False # True
-    if real_data:
-        gpsArr = pd.read_csv('./videos/Coordenadas/Bundle.csv')[['X','Y','Z']]
+    args = parser.parse_args()
+    # Choose between GSI data or random data for 3D points
+    if args.real_data:
+        # Read .csv and save it as a dataframe
+        gpsArr = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
         
-        # # Point of interest
+        # Point of interest
         POI = gpsArr.loc[['CODE45']].to_numpy()[0] # all
         # POIsp = gpsArr.loc[['CODE46']].to_numpy()[0] # small panel
         # POItb = gpsArr.loc[['TARGET311']].to_numpy()[0] # table
         # POIwl = gpsArr.loc[['TARGET317']].to_numpy()[0] # wall
         # POIbp = gpsArr.loc[['CODE32']].to_numpy()[0] # big panel
         
-        # ajustar escala a algo cercano a las distancias en cm
         points_3D = gpsArr.to_numpy() #2.545*
         points_3D -= POI
     
@@ -68,12 +78,12 @@ def main():
     #             ang = np.array((-25+5*i, 155+5*j, -25+5*k))
     
     # Camera rotation
-    ang = np.array((float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3])))
+    ang = np.array(args.rotation)
     cam_r = R.from_euler('XYZ', ang, degrees=True) # 'XYZ' means intrinsic rotations (with respect of the same point/object and not a global reference) 
     rvec = cam_r.as_rotvec()
 
     # Camera position
-    cam_t = np.array((0, 0, float(sys.argv[4])))
+    cam_t = np.array([0.0, 0.0, args.translation])
     tvec = - np.dot(cam_r.as_matrix(), cam_t)
 
     # Camera matrix parameters
@@ -96,8 +106,8 @@ def main():
     # k5 = 
     # k6 =
 
-    dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # [k4], [k5], [k6]))
-    # dist_coeff = np.zeros(5, np.float32)
+    # dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # [k4], [k5], [k6]))
+    dist_coeff = np.zeros(5, np.float32) # Zero distortion
 
     # Simulate a picture of the camera using camera matrix and array of distortion coefficients
     #   projected points look mirrored but that's normal
@@ -109,6 +119,8 @@ def main():
     plt.show()
     plt.close()
 
+    # Reprojection check
+
     # Try to make a match of both to check if the solution is in itself consistent
     res, rvec0, tvec0 = cv2.solvePnP(points_3D, points_2D, camera_matrix, dist_coeff)
 
@@ -118,6 +130,6 @@ def main():
     ang0 = r0.as_quat(canonical=True)
     
     print(f'Reconstructed Angles with SolvePnP: {np.array2string(ang0, precision=2)} in quat')
-    print(f'Original Angles: {np.array2string(ang, precision=2)} in quat')
+    print(f'Original Angles:                    {np.array2string(ang, precision=2)} in quat')
         
 if __name__ == '__main__': main()

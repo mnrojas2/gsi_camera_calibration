@@ -1,57 +1,49 @@
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt
 import os
-import sys
+import argparse
 from tqdm import tqdm
 
+# Initialize parser
+parser = argparse.ArgumentParser(description='Extracts frames from the specified video.')
+parser.add_argument('vidname', type=str, help='Name of video (mp4 format).')
+parser.add_argument('-in', '--folder', type=str, metavar='folder', dest='origin_folder', default='', help='Name of the folder/directory containing the video. Video or directory must be inside ./videos/ folder.')
+parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=10, help='Reduction of number of frames (total/N).')
+parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
+
 def main():
-    # Take all arguments in the terminal
-    args = sys.argv[1:]
+    # Take all arguments from terminal
+    args = parser.parse_args()
+    print(f'Getting frames from ./videos/{args.origin_folder}/{args.vidname}.mp4')
     
-    # First argument: name of the video to get frames
-    vidname = args[0]
-    
-    # Second and third arguments: name of the folder containing the video (folder inside ./videos/)
-    if len(args) >= 3 and args[1] in ('--folder','-in'):
-        origin_folder = args[2]
-        print('Searching video in: videos/' + origin_folder + '/' + vidname + '.mp4')
-    else: 
-        origin_folder = ''
-    
-    # Fourth and fifth arguments: reduction of number of frames (1/x)
-    if len(args) >= 5 and args[3] in ('--reduction','-rd'):
-        reduction = int(args[4])
-    else: 
-        reduction = 10
-    
-    # Fifth and sixth arguments: Residue or offset for the reduced number of frames 
-    if len(args) >= 7 and args[5] in ('--residue', '-rs'):
-        residue = int(args[6])
-    else:
-        residue = 0
-    
-    # Create output folder if it wasn't created yet
-    if not os.path.exists('sets/'+vidname):
-        os.mkdir('sets/'+vidname)
+    try:
+        # Start the video to take the necessary frames
+        vidcap = cv2.VideoCapture('videos/'+args.origin_folder+'/'+args.vidname+'.mp4')
+        total_frame_count = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frame_count == 0:
+            # Since cv2.VideoCapture can't force errors when no video is found, we do it manually.
+            raise IndexError
         
-    # Start the video to take its frames after it's done finish all processes
-    vidcap = cv2.VideoCapture('videos/' + origin_folder + '/' + vidname + '.mp4')
-    total_frame_count = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
-    pbar = tqdm(desc='READING FRAMES', total=total_frame_count, unit=' frames')
-    frame_no = 0
-    
-    while(vidcap.isOpened()):
-        frame_exists, curr_frame = vidcap.read()
-        if frame_exists:
-            if frame_no % reduction == residue:
-                cv2.imwrite("sets/" + vidname + "/frame%d.jpg" % frame_no, curr_frame)
-        else:
-            pbar.close()
-            print("All frames were saved in /sets/" + vidname)
-            break
-        frame_no += 1
-        pbar.update(1)
-    vidcap.release()
+        # Create output folder if it wasn't created yet
+        if not os.path.exists('sets/'+args.vidname):
+            os.mkdir('sets/'+args.vidname)
+        
+        # Start counters
+        pbar = tqdm(desc='READING FRAMES', total=total_frame_count, unit=' frames')
+        frame_no = 0
+        
+        while(vidcap.isOpened()):
+            frame_exists, curr_frame = vidcap.read()
+            if frame_exists:
+                if frame_no % args.reduction == args.residue:
+                    cv2.imwrite("sets/"+args.vidname+"/frame%d.jpg" % frame_no, curr_frame)
+            else:
+                pbar.close()
+                print(f'All frames were saved in /sets/{args.vidname}')
+                break
+            frame_no += 1
+            pbar.update(1)
+        vidcap.release()
+    except:
+        print(f'No video named {args.vidname}.mp4 was found in ./videos/{args.origin_folder}/')
 
 if __name__ == '__main__': main()

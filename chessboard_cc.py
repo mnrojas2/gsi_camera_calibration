@@ -3,7 +3,6 @@
 import sys
 import cv2
 import numpy as np
-#import yaml
 import glob
 
 # Defining the dimensions of checkerboard
@@ -23,17 +22,17 @@ def main():
     args = sys.argv[1:]
     # Extracting path of individual image stored in a given directory
     folder_location = args[0] #input("Name of the folder? : ")
-    images = glob.glob(f'./sets/{folder_location}/*.jpg')
+    images = glob.glob('./sets/'+folder_location+'/*.jpg')
     print(f"Searching images in ./sets/{folder_location}/")
 
-    if len(args) >= 2 and args[1] in ('--scale','-s'):
+    if len(args) >= 3 and args[1] in ('--scale','-s'):
         scale_reduction = int(args[2]) #int(input("% of reduction for each frame?: ")) #0-99
         print(f'Scale reduction set to {scale_reduction}%')
     else: 
         scale_reduction = 0
         print(f'No scale set')
         
-    if len(args) >= 4 and args[3] in ('--extended', '-e'):
+    if len(args) >= 5 and args[3] in ('--extended', '-e'):
         extended = args[4]
         print(f'CameraCalibrationExtended function set')
     else:
@@ -86,14 +85,14 @@ def main():
     """
     print("Calculating camera matrix...")
     camera_matrix = np.eye(3)
-    camera_matrix[0, 0] = 2650 #2615
-    camera_matrix[1, 1] = 2650 #2615
-    camera_matrix[0, 2] = float(img.shape[1]) / 2.0
-    camera_matrix[1, 2] = float(img.shape[0]) / 2.0
+    camera_matrix[0, 0] = 2615.249 # 2650 #2615
+    camera_matrix[1, 1] = 2610.074 # 2650 #2615
+    camera_matrix[0, 2] = 1888.417 # float(img.shape[1]) / 2.0
+    camera_matrix[1, 2] = 1093.929 # float(img.shape[0]) / 2.0
     msg = 'Initial Camera Matrix:\n%s' % np.array2string(camera_matrix)
 
     flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
-    flags_model |= cv2.CALIB_RATIONAL_MODEL #<---- check this
+    # flags_model |= cv2.CALIB_RATIONAL_MODEL # Enable 6 rotation distortion constants instead of 3
 
     if not extended:
         ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
@@ -103,7 +102,8 @@ def main():
         pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
 
     #  Python code to write the image (OpenCV 3.2)
-    fs = cv2.FileStorage('./results/calibration'+folder_location+'.yml', cv2.FILE_STORAGE_WRITE)
+    # fs = cv2.FileStorage('./results/calibration'+folder_location+'_upd.yml', cv2.FILE_STORAGE_WRITE)
+    fs = cv2.FileStorage('./results/calibration'+folder_location+'_upd_3rotcoeff.yml', cv2.FILE_STORAGE_WRITE)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     fs.write('std_intrinsics', stdInt)
