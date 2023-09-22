@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import cv2
 import numpy as np
 import pandas as pd
@@ -67,7 +69,8 @@ f1011 = np.array([
 nf1011 = pd.DataFrame(data=f1011, index=Cindex, columns=['x', 'y'])
 
 img_230 = cv2.imread('./tests/frame230.jpg')
-displayImageWPoints(img_230, f230)
+img_1011 = cv2.imread('./tests/frame1011.jpg')
+displayImageWPoints(img_1011, f1011)
 
 # Try to make a match of both to check if the solution is in itself consistent
 res, rvec0, tvec0 = cv2.solvePnP(points_3D, f1011, camera_matrix, dist_coeff)

@@ -1,9 +1,16 @@
 #!/usr/bin/env python
 
-import sys
 import cv2
 import numpy as np
 import glob
+import argparse
+from tqdm import tqdm
+
+# Initialize parser
+parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
+parser.add_argument('-s', '--scale', type=int, metavar='N', default=0, choices=range(100), help='Scales down the image to get faster (and less reliable) results (range=0:9, default=0) .')
+parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv2.calibrateCameraExtended instead of the default function.')
 
 # Defining the dimensions of checkerboard
 CHECKERBOARD = (7,10)
@@ -19,40 +26,33 @@ objp = np.zeros((1, CHECKERBOARD[0]*CHECKERBOARD[1], 3), np.float32)
 objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 
 def main():
-    args = sys.argv[1:]
+    args = parser.parse_args()
+    
     # Extracting path of individual image stored in a given directory
-    folder_location = args[0] #input("Name of the folder? : ")
-    images = glob.glob('./sets/'+folder_location+'/*.jpg')
-    print(f"Searching images in ./sets/{folder_location}/")
+    images = glob.glob('./sets/'+args.folder+'/*.jpg')
+    print(f"Searching images in ./sets/{args.folder}/")
 
-    if len(args) >= 3 and args[1] in ('--scale','-s'):
-        scale_reduction = int(args[2]) #int(input("% of reduction for each frame?: ")) #0-99
-        print(f'Scale reduction set to {scale_reduction}%')
-    else: 
-        scale_reduction = 0
-        print(f'No scale set')
-        
-    if len(args) >= 5 and args[3] in ('--extended', '-e'):
-        extended = args[4]
+    if args.scale > 0:
+        print(f'Scale reduction set to {args.scale}%') 
+    if args.extended:
         print(f'CameraCalibrationExtended function set')
-    else:
-        extended = False
-        print(f'CameraCalibration function set')
 
     ret_detect = [0,0]
     ret_names = []
 
+    pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
     for fname in images:
         img = cv2.imread(fname)
     
         # resize image
-        if scale_reduction != 0:
-            width = int(img.shape[1] * (1-scale_reduction/100))
-            height = int(img.shape[0] * (1-scale_reduction/100))
+        if args.scale != 0:
+            width = int(img.shape[1] * (1-args.scale/100))
+            height = int(img.shape[0] * (1-args.scale/100))
             dim = (width, height)
             img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
         
         gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        
         # Find the chess board corners
         # If desired number of corners are found in the image then ret = true
         ret, corners = cv2.findChessboardCorners(gray, CHECKERBOARD, cv2.CALIB_CB_ADAPTIVE_THRESH+
@@ -72,10 +72,12 @@ def main():
             img = cv2.drawChessboardCorners(img, CHECKERBOARD, corners2,ret)
             
             # Save some data
-            ret_names.append(fname[8+len(args[0]):-4])
+            ret_names.append(fname[8+len(args.folder):-4])
             ret_detect[0] += 1
         else:
             ret_detect[1] += 1
+        pbar.update(1)
+    pbar.close()
 
     cv2.destroyAllWindows()
 
@@ -84,34 +86,37 @@ def main():
     detected corners (imgpoints)
     """
     print("Calculating camera matrix...")
+    
+    # Initial camera matrix
     camera_matrix = np.eye(3)
     camera_matrix[0, 0] = 2615.249 # 2650 #2615
     camera_matrix[1, 1] = 2610.074 # 2650 #2615
     camera_matrix[0, 2] = 1888.417 # float(img.shape[1]) / 2.0
     camera_matrix[1, 2] = 1093.929 # float(img.shape[0]) / 2.0
-    msg = 'Initial Camera Matrix:\n%s' % np.array2string(camera_matrix)
 
+    # Flags
     flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
     # flags_model |= cv2.CALIB_RATIONAL_MODEL # Enable 6 rotation distortion constants instead of 3
 
-    if not extended:
-        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+    if not args.extended:
+        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
     else:
         ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, gray.shape[::-1], cameraMatrix=camera_matrix, distCoeffs=None,
                                             flags=flags_model)
         pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
 
     #  Python code to write the image (OpenCV 3.2)
-    # fs = cv2.FileStorage('./results/calibration'+folder_location+'_upd.yml', cv2.FILE_STORAGE_WRITE)
-    fs = cv2.FileStorage('./results/calibration'+folder_location+'_upd_3rotcoeff.yml', cv2.FILE_STORAGE_WRITE)
+    # fs = cv2.FileStorage('./results/calibration'+args.folder+'_upd.yml', cv2.FILE_STORAGE_WRITE)
+    fs = cv2.FileStorage('./results/calibration'+args.folder+'_upd_3rotcoeff.yml', cv2.FILE_STORAGE_WRITE)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
-    fs.write('std_intrinsics', stdInt)
-    fs.write('std_extrinsics', stdExt)
-    fs.write('per_view_errors', pVE)
+    if args.extended:
+        fs.write('std_intrinsics', stdInt)
+        fs.write('std_extrinsics', stdExt)
+        fs.write('per_view_errors', pVE)
     fs.release()
 
-    if extended:
+    if args.extended:
         pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
         print(pVE_extended)
         print("----------------------")
