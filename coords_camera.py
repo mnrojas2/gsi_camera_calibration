@@ -35,8 +35,9 @@ def plot_vectors(**kwargs):
         print("3D data can't be plotted")
     ax2 = fig.add_subplot(122)
     try:
+        # Issue: projected points look mirrored but that's normal. Solution: fixed by inverting the value of Y axis (images goes top to bottom, while graph goes bottom to top)
         pts2D = kwargs.get('p2D')
-        ax2.scatter(pts2D[:,0,0], pts2D[:,0,1])
+        ax2.scatter(pts2D[:,0,0], -pts2D[:,0,1])
     except:
         print("2D data can't be plotted")
 
@@ -112,7 +113,6 @@ def main():
     dist_coeff = np.zeros(5, np.float32) # Zero distortion
 
     # Simulate a picture of the camera using camera matrix and array of distortion coefficients
-    #   projected points look mirrored but that's normal
     points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
     
     # Plot 3D points, camera position and rotation and 2D points
