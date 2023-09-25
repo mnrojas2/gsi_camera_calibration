@@ -79,6 +79,7 @@ def main():
         pbar.update(1)
     pbar.close()
 
+    # When everything done, release the capture
     cv2.destroyAllWindows()
 
     """
@@ -106,8 +107,7 @@ def main():
         pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
 
     #  Python code to write the image (OpenCV 3.2)
-    # fs = cv2.FileStorage('./results/calibration'+args.folder+'_upd.yml', cv2.FILE_STORAGE_WRITE)
-    fs = cv2.FileStorage('./results/calibration'+args.folder+'_upd_3rotcoeff.yml', cv2.FILE_STORAGE_WRITE)
+    fs = cv2.FileStorage('./results/calibration'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     if args.extended:
@@ -122,7 +122,7 @@ def main():
         print("----------------------")
     print(mtx)
     print("----------------------")
-    print("Frames w/detections:",ret_detect[0], "Frames wo/detections:",ret_detect[1])
+    print(f"Frames w/detections:{ret_detect[0]} / Frames wo/detections:{ret_detect[1]}")
     
     # # Using the derived camera parameters to undistort the image
 
