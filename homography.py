@@ -3,10 +3,19 @@
 import cv2
 import numpy as np
 import pandas as pd
+import glob
+import argparse
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial import distance
+
+# Initialize parser
+parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
+parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv2.calibrateCameraExtended instead of the default function.')
+parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
+parser.add_argument('-th', '--threshold', type=int, metavar='N', default=64, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
 
 #############################################################################
 # Functions
@@ -23,11 +32,12 @@ def displayImageWPoints(img, *args, name='Picture'):
             cv2.circle(img, (int(arg[i,0]), int(arg[i,1])), 25, (128, 0, 128), -1)
     displayImage(img, name=name)
     
-def scatterPlot(*args):
+def scatterPlot(*args, name='Picture'):
     fig = plt.figure(figsize=(12, 7))
     ax = fig.add_subplot(111)
     for arg in args:
         ax.scatter(arg[:,0], -arg[:,1])
+    plt.get_current_fig_manager().set_window_title(name)
     plt.show()
     
 def deleteDuplicatesPoints(dataframe, df_projected):
@@ -50,7 +60,7 @@ def deleteDuplicatesPoints(dataframe, df_projected):
 #############################################################################
 # Blob detection parameters
 
-# Termination criteria
+# Termination criteria for cv2.cornerSubPix
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # Initializing parameter setting using cv2.SimpleBlobDetector function
@@ -66,7 +76,6 @@ blobParams.minCircularity = 0.9
 
 # Creating a blob detector using the defined parameters
 blobDetector = cv2.SimpleBlobDetector_create(blobParams)
-
 #############################################################################
 # GSI data import
 
@@ -88,7 +97,7 @@ points_3D = obj_3D.to_numpy()
 points_3D -= POI
 
 #############################################################################
-# Camera intrinsic parameters
+# Camera intrinsic parameters for calibration
 
 # Camera matrix
 fx = 2605.170124
@@ -112,9 +121,11 @@ k3 = -0.38064382293946231 # -0.11974069
 
 dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # [k4], [k5], [k6]))
 
-#############################################################################
-# Main
+# Flags
+# CALIB_USE_INTRINSIC_GUESS: Calibration needs a preliminar camera_matrix to start (necessary in non-planar cases)
+# CALIB_RATIONAL_MODEL: Enable 6 rotation distortion constants instead of 3
 
+#############################################################################
 # Extracting points from frames
 ct_f230 = np.array([
     [1295,  685], [2559,  255], [1578,  698], [1631, 1076], [1903,  257], [2559, 1085], [ 962,  676], 
@@ -126,55 +137,105 @@ ct_f1011 = np.array([
     [2317, 1357], [ 994, 1257], [2340,  536], [1439, 1289], [1145, 1264], [1025, 1298], [1244, 1321]
 ], dtype=np.float64)
 
-# Read image
-img_230 = cv2.imread('./tests/frame230.jpg')
-img_1011 = cv2.imread('./tests/frame1011.jpg')
+codetargets = {'frame230': ct_f230, 'frame1011': ct_f1011, 'frame1250': ct_f230}
 
-img0 = img_230
-ct_frame = ct_f230
+# Main
+args = parser.parse_args()
 
-# Get angle of camera by matching known 2D points with 3D points
-res, rvec, tvec = cv2.solvePnP(points_3D_ct, ct_frame, camera_matrix, dist_coeff)
-r0 = R.from_rotvec(rvec.flatten())
-ang = r0.as_euler('XYZ', degrees=True)
-# print(ang)
+# Enable use of calibrateCameraExtended
+if args.extended:
+    print(f'calibrateCameraExtended function set')
+    
+# Camera Calibration Flags
+flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
+if args.k456:
+    flags_model |= cv2.CALIB_RATIONAL_MODEL
+    print(f'CALIB_RATIONAL_MODEL flag set')
 
-# Make simulated image with 3D points data
-points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
-df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
-# scatterPlot(points_2D[:,0,:], ct_frame)
+# Get images from directory
+images = glob.glob(f'./tests/{args.folder}/*.jpg')
+print(f"Searching images in ./tests/{args.folder}/")
 
-# Detect points in image
-# call convertScaleAbs function
-img_adj = cv2.convertScaleAbs(img0, alpha=2.0, beta=-50.0) # alpha: contrast, beta: brightness
+# Arrays to store object points and image points from all frames possible.
+objpoints = [] # 3d points in real world space
+imgpoints = [] # 2d points in image plane.
 
-# Applying threshold to find points
-g_thr = 50
-_, thr = cv2.threshold(img_adj, g_thr, 255, cv2.THRESH_BINARY_INV)
-keypoints = blobDetector.detect(thr)
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+for fname in images:
+    # Read image
+    img0 = cv2.imread(fname)
+    ct_frame = codetargets[fname[8+len(args.folder)+1:-4]]
+    
+    # Get angle of camera by matching known 2D points with 3D points
+    res, rvec, tvec = cv2.solvePnP(points_3D_ct, ct_frame, camera_matrix, dist_coeff)
+    # r0 = R.from_rotvec(rvec.flatten())
+    # ang = r0.as_euler('XYZ', degrees=True)
+    # print(ang)
 
-# Creating a list of corners (equivalent of findCirclesGrid)
-corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
-corners = np.array(corners, dtype=np.float32)
-# displayImageWPoints(img0, corners[:,0,:], name='Imagen con puntos')
-# scatterPlot(points_2D[:,0,:], corners[:,0,:])
+    # Make simulated image with 3D points data
+    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
+    # scatterPlot(points_2D[:,0,:], ct_frame)
 
-# Get distance between 2D projected points and 2D image points
-corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:])
+    # Detect points in image
+    img_adj = cv2.convertScaleAbs(img0, alpha=2.0, beta=-50.0) # alpha: contrast, beta: brightness
 
-# Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
-corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
-corners_min = corners_dataframe.idxmin(axis='columns')
+    # Applying threshold to find points
+    _, thr = cv2.threshold(img_adj, args.threshold, 255, cv2.THRESH_BINARY_INV)
+    keypoints = blobDetector.detect(thr)
 
-# Delete duplicate points that were not in the GSI point list
-df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
-df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
-df_corners_np = df_corners[['X', 'Y']].to_numpy()
-scatterPlot(points_2D[:,0,:], df_corners_np)
+    # Create a list of corners (equivalent of findCirclesGrid)
+    corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
+    corners = np.array(corners, dtype=np.float32)
+    # displayImageWPoints(img0, corners[:,0,:], name='Imagen con puntos')
+    # scatterPlot(points_2D[:,0,:], corners[:,0,:])
+    
+    im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
 
+    if corners.shape != (0,):
+        # Get distance between 2D projected points and 2D image points
+        corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:])
 
-# corners_min.to_csv('datos.txt')
+        # Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
+        corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
+        corners_min = corners_dataframe.idxmin(axis='columns')
 
-# Reordenar la lista de los corners, y/o gsi targets para dejar datos 2D y 3D en la misma columna
+        # Delete duplicate points that were not in the GSI point list
+        df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
+        df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
+        df_cnp = df_corners.to_numpy(dtype=np.float32)
 
-# Hacer lo mismo para el resto del dataset de imágenes para obtener los sets para calibrar
+        # Produce datasets and add them to list
+        new_corners = df_cnp.reshape(df_cnp.shape[0],1,df_cnp.shape[1])
+        new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
+        
+        corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
+        
+        objpoints.append(new_obj3D)
+        imgpoints.append(corners2)
+        
+        # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=fname[8+args.folder+1:-4])
+    pbar.update(1)
+pbar.close()
+
+# When everything done, release the capture (just in case)
+cv2.destroyAllWindows()
+
+print("Calculating camera matrix...")
+if args.extended:
+    ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+else:
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+
+print('Camera matrix:\n', mtx)
+print('Distortion coefficients:\n', dist)
+
+fs = cv2.FileStorage('./tests/results'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
+fs.write('camera_matrix', mtx)
+fs.write('dist_coeff', dist)
+if args.extended:
+    fs.write('std_intrinsics', stdInt)
+    fs.write('std_extrinsics', stdExt)
+    fs.write('per_view_errors', pVE)
+fs.release()
