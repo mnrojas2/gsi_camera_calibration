@@ -102,8 +102,8 @@ points_3D -= POI
 # Camera matrix
 fx = 2605.170124
 fy = 2596.136808
-cx = 1882.683683
-cy = 1072.920820
+cx = 1920 # 1882.683683
+cy = 1080 # 1072.920820
 
 camera_matrix = np.array([[fx, 0., cx],
                           [0., fy, cy],
@@ -139,6 +139,7 @@ ct_f1011 = np.array([
 
 codetargets = {'frame230': ct_f230, 'frame1011': ct_f1011, 'frame1250': ct_f230}
 
+################################################################################
 # Main
 args = parser.parse_args()
 
@@ -187,13 +188,14 @@ for fname in images:
     # Create a list of corners (equivalent of findCirclesGrid)
     corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
     corners = np.array(corners, dtype=np.float32)
-    # displayImageWPoints(img0, corners[:,0,:], name='Imagen con puntos')
-    # scatterPlot(points_2D[:,0,:], corners[:,0,:])
     
-    im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
-
     if corners.shape != (0,):
+        # displayImageWPoints(img0, corners[:,0,:], name='Imagen con puntos')
+        # scatterPlot(points_2D[:,0,:], corners[:,0,:])
+        
+        im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
+
         # Get distance between 2D projected points and 2D image points
         corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:])
 
@@ -211,11 +213,10 @@ for fname in images:
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
         
         corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
-        
+        scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=fname[8+len(args.folder)+1:-4])
+
         objpoints.append(new_obj3D)
         imgpoints.append(corners2)
-        
-        # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=fname[8+args.folder+1:-4])
     pbar.update(1)
 pbar.close()
 
