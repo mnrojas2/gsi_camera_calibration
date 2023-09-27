@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 
+import cv2
 import numpy as np
 import pandas as pd
-import cv2
 import argparse
 from scipy.spatial.transform import Rotation as R
-from astropy import units as u
-from tqdm import tqdm
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Converts 3D points to 2D points by projecting them.')
