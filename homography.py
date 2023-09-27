@@ -109,8 +109,8 @@ points_3D -= POI
 # Camera matrix
 fx = 2605.170124
 fy = 2596.136808
-cx = 1882.683683
-cy = 1072.920820
+cx = 1920 # 1882.683683
+cy = 1080 # 1072.920820
 
 camera_matrix = np.array([[fx, 0., cx],
                           [0., fy, cy],
@@ -163,13 +163,13 @@ for fname in images:
     ct_frame = np.array(list(ct_frame.values()), dtype=np.float64)
     
     # Get angle of camera by matching known 2D points with 3D points
-    res, rvec, tvec = cv2.solvePnP(points_3D_ct, ct_frame, camera_matrix, dist_coeff)
+    res, rvec, tvec = cv2.solvePnP(points_3D_ct, ct_frame, camera_matrix, None)
     # r0 = R.from_rotvec(rvec.flatten())
     # ang = r0.as_euler('XYZ', degrees=True)
-    # print(ang)
+    # print(fname[8+len(args.folder)+1:-4], ang)
 
     # Make simulated image with 3D points data
-    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, distCoeffs=None)[0]
+    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
     # scatterPlot(points_2D[:,0,:], ct_frame)
 
@@ -185,7 +185,7 @@ for fname in images:
     corners = np.array(corners, dtype=np.float32)
     
     if corners.shape != (0,):
-        # displayImageWPoints(img0, corners[:,0,:], name='Imagen con puntos')
+        # displayImageWPoints(img_adj, points_2D[:,0,:], name='Imagen con puntos')
         # scatterPlot(points_2D[:,0,:], corners[:,0,:])
         
         im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
@@ -231,7 +231,7 @@ else:
 print('Camera matrix:\n', mtx)
 print('Distortion coefficients:\n', dist)
 if args.extended:
-    print(pVE_extended)
+    print('Error per frame:\n', pVE_extended)
 
 fs = cv2.FileStorage('./tests/results'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
 fs.write('camera_matrix', mtx)
