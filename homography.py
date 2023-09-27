@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import glob
 import argparse
+import json
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
@@ -15,7 +16,8 @@ parser = argparse.ArgumentParser(description='Camera calibration using chessboar
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
 parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv2.calibrateCameraExtended instead of the default function.')
 parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
-parser.add_argument('-th', '--threshold', type=int, metavar='N', default=64, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
+parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
+parser.add_argument('-p', '--plots', action='store_true', default=False, help='Shows plots of every frame with image points and projected points.')
 
 #############################################################################
 # Functions
@@ -79,8 +81,13 @@ blobDetector = cv2.SimpleBlobDetector_create(blobParams)
 #############################################################################
 # GSI data import
 
+# Manually found points (codetargets) list
+points_dir = './tests/points_json.txt'
+with open(points_dir) as json_file:
+    codetargets = json.load(json_file)
+
 # CODETARGET index (2D points)
-Cindex = ['CODE25', 'CODE26', 'CODE29', 'CODE30', 'CODE31', 'CODE32', 'CODE36', 'CODE38', 'CODE42', 'CODE43', 'CODE45', 'CODE46', 'CODE133', 'CODE134']
+Cindex = codetargets['frame0'].keys()
     
 # Import the 3D points from the csv file
 obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
@@ -102,42 +109,29 @@ points_3D -= POI
 # Camera matrix
 fx = 2605.170124
 fy = 2596.136808
-cx = 1920 # 1882.683683
-cy = 1080 # 1072.920820
+cx = 1882.683683
+cy = 1072.920820
 
 camera_matrix = np.array([[fx, 0., cx],
                           [0., fy, cy],
                           [0., 0., 1.]], dtype = "double")
 
 # Distortion coefficients
-k1 = -0.02247760754865920 # -0.011935952
-k2 =  0.48088686640699946 #  0.03064728
-p1 = -0.00483894784615441 # -0.00067055
-p2 =  0.00201310943773827 # -0.00512621
-k3 = -0.38064382293946231 # -0.11974069
-# k4 = 
-# k5 = 
-# k6 = 
+k1 = -0.011935952
+k2 = 0.03064728
+p1 = -0.00067055
+p2 = -0.00512621
+k3 = -0.11974069
+# k4 =
+# k5 =
+# k6 =
 
-dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # [k4], [k5], [k6]))
+dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # , [k4], [k5], [k6]))
 
 # Flags
+flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
 # CALIB_USE_INTRINSIC_GUESS: Calibration needs a preliminar camera_matrix to start (necessary in non-planar cases)
 # CALIB_RATIONAL_MODEL: Enable 6 rotation distortion constants instead of 3
-
-#############################################################################
-# Extracting points from frames
-ct_f230 = np.array([
-    [1295,  685], [2559,  255], [1578,  698], [1631, 1076], [1903,  257], [2559, 1085], [ 962,  676], 
-    [3140, 1073], [ 943, 1078], [3133,  248], [1907, 1071], [1285, 1072], [1068, 1129], [1539, 1133]
-], dtype=np.float64)
-
-ct_f1011 = np.array([
-    [1151,  988], [1877,  598], [1288,  996], [1314, 1281], [1461,  648], [1849, 1332], [1006,  984],
-    [2317, 1357], [ 994, 1257], [2340,  536], [1439, 1289], [1145, 1264], [1025, 1298], [1244, 1321]
-], dtype=np.float64)
-
-codetargets = {'frame230': ct_f230, 'frame1011': ct_f1011, 'frame1250': ct_f230}
 
 ################################################################################
 # Main
@@ -148,7 +142,6 @@ if args.extended:
     print(f'calibrateCameraExtended function set')
     
 # Camera Calibration Flags
-flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
 if args.k456:
     flags_model |= cv2.CALIB_RATIONAL_MODEL
     print(f'CALIB_RATIONAL_MODEL flag set')
@@ -160,12 +153,14 @@ print(f"Searching images in ./tests/{args.folder}/")
 # Arrays to store object points and image points from all frames possible.
 objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
+ret_names = []
 
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
 for fname in images:
     # Read image
     img0 = cv2.imread(fname)
     ct_frame = codetargets[fname[8+len(args.folder)+1:-4]]
+    ct_frame = np.array(list(ct_frame.values()), dtype=np.float64)
     
     # Get angle of camera by matching known 2D points with 3D points
     res, rvec, tvec = cv2.solvePnP(points_3D_ct, ct_frame, camera_matrix, dist_coeff)
@@ -174,7 +169,7 @@ for fname in images:
     # print(ang)
 
     # Make simulated image with 3D points data
-    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, distCoeffs=None)[0]
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
     # scatterPlot(points_2D[:,0,:], ct_frame)
 
@@ -213,10 +208,12 @@ for fname in images:
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
         
         corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
-        scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=fname[8+len(args.folder)+1:-4])
+        if args.plots:
+            scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=fname[8+len(args.folder)+1:-4])
 
         objpoints.append(new_obj3D)
         imgpoints.append(corners2)
+        ret_names.append(fname[8+len(args.folder)+1:-4])
     pbar.update(1)
 pbar.close()
 
@@ -226,11 +223,15 @@ cv2.destroyAllWindows()
 print("Calculating camera matrix...")
 if args.extended:
     ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+    pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
+    pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
 else:
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
 
 print('Camera matrix:\n', mtx)
 print('Distortion coefficients:\n', dist)
+if args.extended:
+    print(pVE_extended)
 
 fs = cv2.FileStorage('./tests/results'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
 fs.write('camera_matrix', mtx)
