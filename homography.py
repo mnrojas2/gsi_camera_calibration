@@ -81,27 +81,18 @@ blobDetector = cv2.SimpleBlobDetector_create(blobParams)
 #############################################################################
 # GSI data import
 
-# Manually found points (codetargets) list
+# Import the 3D points from the csv file
+obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
+points_3D = obj_3D.to_numpy() # BEWARE to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
+
+# Point of interest
+POI = obj_3D.loc[['CODE45']].to_numpy()[0]
+points_3D -= POI
+
+# Import manually found points (codetargets) list
 points_dir = './tests/points_json.txt'
 with open(points_dir) as json_file:
     codetargets = json.load(json_file)
-
-# CODETARGET index (2D points)
-Cindex = codetargets['frame0'].keys()
-    
-# Import the 3D points from the csv file
-obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
-obj_3D_ct = obj_3D.loc[Cindex]
-
-# Point of interest
-POI = obj_3D_ct.loc[['CODE45']].to_numpy()[0]
-
-# Set list of 3D points
-points_3D_ct = obj_3D_ct.to_numpy()
-points_3D_ct -= POI
-
-points_3D = obj_3D.to_numpy()
-points_3D -= POI
 
 #############################################################################
 # Camera intrinsic parameters for calibration
@@ -159,14 +150,17 @@ pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
 for fname in images:
     # Read image
     img0 = cv2.imread(fname)
-    ct_frame = codetargets[fname[8+len(args.folder)+1:-4]]
-    ct_frame = np.array(list(ct_frame.values()), dtype=np.float64)
+    ffname = fname[8+len(args.folder)+1:-4]
+    
+    ct_frame_dict = codetargets[ffname]
+    ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
+    ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy() # POI doesn't need to get subtracted, already done in line 90, explained in line 86.
     
     # Get angle of camera by matching known 2D points with 3D points
-    res, rvec, tvec = cv2.solvePnP(points_3D_ct, ct_frame, camera_matrix, None)
+    res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
     # r0 = R.from_rotvec(rvec.flatten())
     # ang = r0.as_euler('XYZ', degrees=True)
-    # print(fname[8+len(args.folder)+1:-4], ang)
+    # print(ffname, ang)
 
     # Make simulated image with 3D points data
     points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
@@ -209,11 +203,11 @@ for fname in images:
         
         corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
         if args.plots:
-            scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=fname[8+len(args.folder)+1:-4])
+            scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=ffname)
 
         objpoints.append(new_obj3D)
         imgpoints.append(corners2)
-        ret_names.append(fname[8+len(args.folder)+1:-4])
+        ret_names.append(ffname)
     pbar.update(1)
 pbar.close()
 
