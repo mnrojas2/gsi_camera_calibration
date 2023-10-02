@@ -59,10 +59,19 @@ def deleteDuplicatesPoints(dataframe, df_projected):
     dup_corners_fix.index.name=None
 
     dataframe = pd.concat([dataframe, dup_corners_fix], axis=0)
+    dataframe = deleteFarPoints(dataframe, df_projected)
     return dataframe
 
-def deletePointsTooFar(dataframe, df_projected, limit=250):
-    return dataframe
+def deleteFarPoints(dataframe, df_projected, limit=75):
+    # Checks distance between points in dataframe and df_projected and deletes those from dataframe that surpass a certain upper limit
+    new_df = dataframe.reset_index()
+    new_dfX = new_df["index"].map(df_projected["X"])
+    new_dfY = new_df["index"].map(df_projected["Y"])
+    new_dfXY = pd.concat([new_dfX, new_dfY], axis=1)
+    
+    new_df['dist'] = np.linalg.norm(new_df.iloc[:, [1,2]].values - new_dfXY, axis=1)
+    new_df_list = new_df.loc[new_df['dist'] >= limit]['index'].to_list()
+    return dataframe.drop(new_df_list)
 
 #############################################################################
 # Blob detection parameters
@@ -216,7 +225,6 @@ for fname in images:
         objpoints.append(new_obj3D)
         imgpoints.append(corners2)
         ret_names.append(ffname)
-        # '''
     pbar.update(1)
 pbar.close()
 
