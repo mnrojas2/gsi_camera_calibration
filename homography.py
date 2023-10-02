@@ -18,6 +18,8 @@ parser.add_argument('-e', '--extended', action='store_true', default=False, help
 parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
 parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
 parser.add_argument('-p', '--plots', action='store_true', default=False, help='Shows plots of every frame with image points and projected points.')
+parser.add_argument('-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
+parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml).')
 
 #############################################################################
 # Functions
@@ -31,7 +33,7 @@ def displayImage(img, width=1280, height=720, name='Picture'):
 def displayImageWPoints(img, *args, name='Picture'):
     for arg in args:
         for i in range(arg.shape[0]):
-            cv2.circle(img, (int(arg[i,0]), int(arg[i,1])), 25, (128, 0, 128), -1)
+            cv2.circle(img, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
     displayImage(img, name=name)
     
 def scatterPlot(*args, name='Picture'):
@@ -59,6 +61,9 @@ def deleteDuplicatesPoints(dataframe, df_projected):
     dataframe = pd.concat([dataframe, dup_corners_fix], axis=0)
     return dataframe
 
+def deletePointsTooFar(dataframe, df_projected, limit=250):
+    return dataframe
+
 #############################################################################
 # Blob detection parameters
 
@@ -70,11 +75,11 @@ blobParams = cv2.SimpleBlobDetector_Params()
 
 # Filter by Area
 blobParams.filterByArea = True
-blobParams.maxArea = 500
+blobParams.maxArea = 175
 
 # Filter by Circularity
 blobParams.filterByCircularity = True
-blobParams.minCircularity = 0.9
+blobParams.minCircularity = 0.75
 
 # Creating a blob detector using the defined parameters
 blobDetector = cv2.SimpleBlobDetector_create(blobParams)
@@ -109,13 +114,10 @@ camera_matrix = np.array([[fx, 0., cx],
 
 # Distortion coefficients
 k1 = -0.011935952
-k2 = 0.03064728
+k2 =  0.03064728
 p1 = -0.00067055
 p2 = -0.00512621
 k3 = -0.11974069
-# k4 =
-# k5 =
-# k6 =
 
 dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # , [k4], [k5], [k6]))
 
@@ -131,7 +133,14 @@ args = parser.parse_args()
 # Enable use of calibrateCameraExtended
 if args.extended:
     print(f'calibrateCameraExtended function set')
-    
+
+# Replace local camera calibration parameters from file (if enabled)
+if args.calibfile:
+    fs = cv2.FileStorage('./tests/'+args.calibfile+'.yml', cv2.FILE_STORAGE_READ)
+    camera_matrix = fs.getNode("camera_matrix").mat()
+    dist_coeff = fs.getNode("dist_coeff").mat()[:8]
+    print(f'Imported calibration parameters from /{args.calibfile}.yml/')
+
 # Camera Calibration Flags
 if args.k456:
     flags_model |= cv2.CALIB_RATIONAL_MODEL
@@ -152,6 +161,7 @@ for fname in images:
     img0 = cv2.imread(fname)
     ffname = fname[8+len(args.folder)+1:-4]
     
+    # Get list of codetargets from manually found point list
     ct_frame_dict = codetargets[ffname]
     ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
     ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy() # POI doesn't need to get subtracted, already done in line 90, explained in line 86.
@@ -159,8 +169,7 @@ for fname in images:
     # Get angle of camera by matching known 2D points with 3D points
     res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
     # r0 = R.from_rotvec(rvec.flatten())
-    # ang = r0.as_euler('XYZ', degrees=True)
-    # print(ffname, ang)
+    # print(ffname, r0.as_euler('XYZ', degrees=True))
 
     # Make simulated image with 3D points data
     points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
@@ -169,9 +178,11 @@ for fname in images:
 
     # Detect points in image
     img_adj = cv2.convertScaleAbs(img0, alpha=2.0, beta=-50.0) # alpha: contrast, beta: brightness
+    img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
 
     # Applying threshold to find points
-    _, thr = cv2.threshold(img_adj, args.threshold, 255, cv2.THRESH_BINARY_INV)
+    # _, thr = cv2.threshold(img_adj, args.threshold, 255, cv2.THRESH_BINARY_INV)
+    thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
     keypoints = blobDetector.detect(thr)
 
     # Create a list of corners (equivalent of findCirclesGrid)
@@ -179,9 +190,6 @@ for fname in images:
     corners = np.array(corners, dtype=np.float32)
     
     if corners.shape != (0,):
-        # displayImageWPoints(img_adj, points_2D[:,0,:], name='Imagen con puntos')
-        # scatterPlot(points_2D[:,0,:], corners[:,0,:])
-        
         im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
 
@@ -208,10 +216,11 @@ for fname in images:
         objpoints.append(new_obj3D)
         imgpoints.append(corners2)
         ret_names.append(ffname)
+        # '''
     pbar.update(1)
 pbar.close()
 
-# When everything done, release the capture (just in case)
+# When everything done, release the video
 cv2.destroyAllWindows()
 
 print("Calculating camera matrix...")
@@ -227,11 +236,13 @@ print('Distortion coefficients:\n', dist)
 if args.extended:
     print('Error per frame:\n', pVE_extended)
 
-fs = cv2.FileStorage('./tests/results'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
-fs.write('camera_matrix', mtx)
-fs.write('dist_coeff', dist)
-if args.extended:
-    fs.write('std_intrinsics', stdInt)
-    fs.write('std_extrinsics', stdExt)
-    fs.write('per_view_errors', pVE)
-fs.release()
+if args.save:
+    fs = cv2.FileStorage('./tests/results'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
+    fs.write('init_cam_calib', args.calibfile)
+    fs.write('camera_matrix', mtx)
+    fs.write('dist_coeff', dist)
+    if args.extended:
+        fs.write('std_intrinsics', stdInt)
+        fs.write('std_extrinsics', stdExt)
+        fs.write('per_view_errors', pVE)
+    fs.release()
