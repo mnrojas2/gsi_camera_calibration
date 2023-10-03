@@ -88,7 +88,7 @@ blobParams.maxArea = 175
 
 # Filter by Circularity
 blobParams.filterByCircularity = True
-blobParams.minCircularity = 0.75
+blobParams.minCircularity = 0.7
 
 # Creating a blob detector using the defined parameters
 blobDetector = cv2.SimpleBlobDetector_create(blobParams)
@@ -162,7 +162,7 @@ print(f"Searching images in ./tests/{args.folder}/")
 # Arrays to store object points and image points from all frames possible.
 objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
-ret_names = []
+ret_names = [] # names of every frame for tabulation
 
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
 for fname in images:
@@ -183,7 +183,6 @@ for fname in images:
     # Make simulated image with 3D points data
     points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
-    # scatterPlot(points_2D[:,0,:], ct_frame)
 
     # Detect points in image
     img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
@@ -216,7 +215,8 @@ for fname in images:
         new_corners = df_cnp.reshape(df_cnp.shape[0],1,df_cnp.shape[1])
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
         
-        corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
+        # Refine the corner locations
+        corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)
         if args.plots:
             scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=ffname)
 
@@ -229,6 +229,7 @@ pbar.close()
 # When everything done, release the video
 cv2.destroyAllWindows()
 
+# Camera Calibration
 print("Calculating camera matrix...")
 if args.extended:
     ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
@@ -243,7 +244,7 @@ if args.extended:
     print('Error per frame:\n', pVE_extended)
 
 if args.save:
-    fs = cv2.FileStorage('./tests/results'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
+    fs = cv2.FileStorage('./tests/res-'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
     fs.write('init_cam_calib', args.calibfile)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
