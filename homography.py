@@ -77,7 +77,7 @@ def deleteFarPoints(dataframe, df_projected, limit=75):
 # Blob detection parameters
 
 # Termination criteria for cv2.cornerSubPix
-criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 90, 0.00001)
 
 # Initializing parameter setting using cv2.SimpleBlobDetector function
 blobParams = cv2.SimpleBlobDetector_Params()
@@ -175,13 +175,19 @@ for fname in images:
     ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
     ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy() # POI doesn't need to get subtracted, already done in line 90, explained in line 86.
     
-    # Get angle of camera by matching known 2D points with 3D points
-    res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
+    if args.calibfile:
+        # Get angle of camera by matching known 2D points with 3D points
+        res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
+        
+        # Make simulated image with 3D points data
+        points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    else:
+        # Solve the matching without considering distortion coefficients
+        res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
+        points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
     # r0 = R.from_rotvec(rvec.flatten())
     # print(ffname, r0.as_euler('XYZ', degrees=True))
-
-    # Make simulated image with 3D points data
-    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
+    
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
 
     # Detect points in image
@@ -245,6 +251,8 @@ if args.extended:
 
 if args.save:
     fs = cv2.FileStorage('./tests/res-'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
+    summary = input("Insert comments: ")
+    fs.write('summary', summary)
     fs.write('init_cam_calib', args.calibfile)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
