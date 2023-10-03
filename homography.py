@@ -99,7 +99,7 @@ blobDetector = cv2.SimpleBlobDetector_create(blobParams)
 obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
 points_3D = obj_3D.to_numpy() # BEWARE to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
-# Point of interest
+# Point of interest (center)
 POI = obj_3D.loc[['CODE45']].to_numpy()[0]
 points_3D -= POI
 
@@ -186,11 +186,9 @@ for fname in images:
     # scatterPlot(points_2D[:,0,:], ct_frame)
 
     # Detect points in image
-    img_adj = cv2.convertScaleAbs(img0, alpha=2.0, beta=-50.0) # alpha: contrast, beta: brightness
     img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
 
     # Applying threshold to find points
-    # _, thr = cv2.threshold(img_adj, args.threshold, 255, cv2.THRESH_BINARY_INV)
     thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
     keypoints = blobDetector.detect(thr)
 
@@ -203,7 +201,7 @@ for fname in images:
         im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
 
         # Get distance between 2D projected points and 2D image points
-        corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:])
+        corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
 
         # Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
         corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
@@ -250,7 +248,8 @@ if args.save:
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     if args.extended:
+        pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
         fs.write('std_intrinsics', stdInt)
         fs.write('std_extrinsics', stdExt)
-        fs.write('per_view_errors', pVE)
+        fs.write('per_view_errors', pVElist)
     fs.release()
