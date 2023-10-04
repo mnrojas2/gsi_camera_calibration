@@ -6,6 +6,7 @@ import pandas as pd
 import glob
 import argparse
 import json
+import re
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
@@ -137,8 +138,8 @@ if args.k456:
     print(f'CALIB_RATIONAL_MODEL flag set')
 
 # Get images from directory
-images = glob.glob(f'./tests/{args.folder}/*.jpg')
 print(f"Searching images in ./tests/{args.folder}/")
+images = sorted(glob.glob(f'./tests/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
 # Arrays to store object points and image points from all frames possible.
 objpoints = [] # 3d points in real world space
