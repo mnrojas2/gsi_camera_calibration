@@ -97,7 +97,7 @@ blobDetector = cv2.SimpleBlobDetector_create(blobParams)
 
 # Import the 3D points from the csv file
 obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
-points_3D = obj_3D.to_numpy() # BEWARE to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
+points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
 # Point of interest (center)
 POI = obj_3D.loc[['CODE45']].to_numpy()[0]
@@ -250,8 +250,8 @@ if args.extended:
     print('Error per frame:\n', pVE_extended)
 
 if args.save:
-    fs = cv2.FileStorage('./tests/res-'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
     summary = input("Insert comments: ")
+    fs = cv2.FileStorage('./tests/res-'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
     fs.write('init_cam_calib', args.calibfile)
     fs.write('camera_matrix', mtx)
