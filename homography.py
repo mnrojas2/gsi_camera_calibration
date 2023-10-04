@@ -216,7 +216,7 @@ for fname in images:
     # corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
     corners = np.array(corners, dtype=np.float32)
     
-    if qcorners.shape[0] > 4.0:
+    if corners.shape[0] > 4.0:
         # im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         # im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
 
