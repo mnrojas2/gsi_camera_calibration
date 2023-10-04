@@ -48,7 +48,7 @@ def main():
     df_ccd_dcb = df_ccd.describe()
     df_ccd_complete = pd.concat([df_ccd, df_ccd_dcb])
 
-    df_ccd_complete.to_excel('results/'+id+'/camera_calibration_.xlsx')
+    df_ccd_complete.to_excel('results/'+id+'/camera_calibration.xlsx')
 
     fig, axis = plt.subplots(nrows=2, ncols=2)
     df_ccd['fx'].plot(ax=axis[0,0],kind="hist", title="fx")
