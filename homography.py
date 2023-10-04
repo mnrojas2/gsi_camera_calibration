@@ -196,14 +196,29 @@ for fname in images:
     # Applying threshold to find points
     thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
     keypoints = blobDetector.detect(thr)
+    
+    # List position of every point found
+    contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    corners = []
+    for c in contours:
+        # calculate moments for each contour
+        M = cv2.moments(c)
+
+        # calculate x,y coordinate of center
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+        else:
+            cX, cY = 0, 0
+        corners.append([[cX, cY]])
 
     # Create a list of corners (equivalent of findCirclesGrid)
-    corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
+    # corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
     corners = np.array(corners, dtype=np.float32)
     
-    if corners.shape != (0,):
-        im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
+    if qcorners.shape[0] > 4.0:
+        # im_with_keypoints = cv2.drawKeypoints(img0, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        # im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
 
         # Get distance between 2D projected points and 2D image points
         corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
@@ -222,12 +237,14 @@ for fname in images:
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
         
         # Refine the corner locations
-        corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)
+        # corners2 = cv2.cornerSubPix(im_with_keypoints_gray, new_corners, (11,11), (-1,-1), criteria)
+        
+        # Print proyected and image points
         if args.plots:
-            scatterPlot(points_2D[:,0,:], new_corners[:,0,:], corners2[:,0,:], name=ffname)
+            scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname) # corners2[:,0,:],
 
         objpoints.append(new_obj3D)
-        imgpoints.append(corners2)
+        imgpoints.append(new_corners)
         ret_names.append(ffname)
     pbar.update(1)
 pbar.close()
