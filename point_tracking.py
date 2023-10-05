@@ -203,7 +203,7 @@ for fname in images[:1]:
         df_cnp = df_corners.to_numpy(dtype=np.float32)
 
         # Produce datasets and add them to list
-        new_corners = df_cnp.reshape(df_cnp.shape[0],1,df_cnp.shape[1])
+        new_corners = df_cnp.reshape(-1,1,2)
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
 
         objpoints.append(new_obj3D)
@@ -217,10 +217,12 @@ orb = cv2.ORB_create()
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
-for fname in images[1:2]:
+for fname in images[1:3]:
     # Read image
     img0 = cv2.imread(fname)
     ffname = fname[8+len(args.folder):-4]
+    
+    # displayImageWPoints(img0, new_corners[:,0,:], name=ffname)
     
     # Detect points in image
     img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
@@ -228,24 +230,24 @@ for fname in images[1:2]:
     kp1, des1 = orb.detectAndCompute(img_old,None)
     kp2, des2 = orb.detectAndCompute(img_gray,None)
     
+    # img1 = cv2.drawKeypoints(img_old, kp1, None, color=(0,255,0), flags=0)
+    # img2 = cv2.drawKeypoints(img_gray, kp2, None, color=(0,255,0), flags=0)
+    # plt.figure(), plt.imshow(img1), plt.figure(), plt.imshow(img2), plt.show()
+    
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     
     # Match descriptors.
     matches = bf.match(des1,des2)
     dmatches = sorted(matches, key=lambda x:x.distance)
     
-    for m in dmatches:
-        print(kp1[m.queryIdx].pt)
-    
-    # corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
     src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
     dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
     
     ## find homography matrix and do perspective transform
-    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.LMEDS, 5.0)
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RHO, 5.0)
 
-    new_corners2 = cv2.perspectiveTransform(new_corners, M)
-    
+    new_corners = cv2.perspectiveTransform(new_corners, M)
+    img_old = img_gray
     pbar.update(1)
 pbar.close()
 

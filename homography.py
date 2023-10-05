@@ -210,7 +210,7 @@ for fname in images:
         df_cnp = df_corners.to_numpy(dtype=np.float32)
 
         # Produce datasets and add them to list
-        new_corners = df_cnp.reshape(df_cnp.shape[0],1,df_cnp.shape[1])
+        new_corners = df_cnp.reshape(-1,1,2)
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
         
         # Show proyected points and image points
