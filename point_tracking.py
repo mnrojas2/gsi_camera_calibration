@@ -85,10 +85,25 @@ points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but a
 POI = obj_3D.loc[['CODE45']].to_numpy()[0]
 points_3D -= POI
 
-# Import manually found points (codetargets) list
-points_dir = './tests/points_json.txt'
-with open(points_dir) as json_file:
-    codetargets = json.load(json_file)
+# Manually found (codetargets) list (C51Finf)
+ct_frame_dict = {
+		"CODE25": [1581, 588],
+		"CODE26": [2635, 231],
+		"CODE29": [1816, 599],
+		"CODE30": [1860, 913],
+		"CODE31": [2091, 228],
+		"CODE32": [2614, 920],
+		"CODE36": [1302, 579],
+		"CODE38": [3078, 911],
+		"CODE42": [1293, 914],
+		"CODE43": [3105, 229],
+		"CODE45": [2089, 910],
+		"CODE46": [1574, 909],
+		"CODE133": [1402, 957],
+		"CODE134": [1789, 960]
+	}
+ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
+ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
 
 #############################################################################
 # Camera intrinsic parameters for calibration
@@ -112,18 +127,9 @@ k3 = -0.11974069
 
 dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # , [k4], [k5], [k6]))
 
-# Flags
-flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
-# CALIB_USE_INTRINSIC_GUESS: Calibration needs a preliminar camera_matrix to start (necessary in non-planar cases)
-# CALIB_RATIONAL_MODEL: Enable 6 rotation distortion constants instead of 3
-
 ################################################################################
 # Main
 args = parser.parse_args()
-
-# Enable use of calibrateCameraExtended
-if args.extended:
-    print(f'calibrateCameraExtended function set')
 
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
@@ -132,46 +138,34 @@ if args.calibfile:
     dist_coeff = fs.getNode("dist_coeff").mat()[:8]
     print(f'Imported calibration parameters from /{args.calibfile}.yml/')
 
-# Camera Calibration Flags
-if args.k456:
-    flags_model |= cv2.CALIB_RATIONAL_MODEL
-    print(f'CALIB_RATIONAL_MODEL flag set')
+    # Get angle of camera by matching known 2D points with 3D points
+    res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
+    
+    # Make simulated image with 3D points data
+    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+else:
+    # Solve the matching without considering distortion coefficients
+    res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
+    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
+    
+df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
 
 # Get images from directory
-print(f"Searching images in ./tests/{args.folder}/")
-images = sorted(glob.glob(f'./tests/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+print(f"Searching images in ./sets/{args.folder}/")
+images = sorted(glob.glob(f'./sets/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
 # Arrays to store object points and image points from all frames possible.
 objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
+# Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
-for fname in images:
+for fname in images[:1]:
     # Read image
     img0 = cv2.imread(fname)
-    ffname = fname[8+len(args.folder)+1:-4]
+    ffname = fname[8+len(args.folder):-4]
     
-    # Get list of codetargets from manually found point list
-    ct_frame_dict = codetargets[ffname]
-    ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
-    ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy() # POI doesn't need to get subtracted, already done in line 90, explained in line 86.
-    
-    if args.calibfile:
-        # Get angle of camera by matching known 2D points with 3D points
-        res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
-        
-        # Make simulated image with 3D points data
-        points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
-    else:
-        # Solve the matching without considering distortion coefficients
-        res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
-        points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
-    # r0 = R.from_rotvec(rvec.flatten())
-    # print(ffname, r0.as_euler('XYZ', degrees=True))
-    
-    df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
-
     # Detect points in image
     img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
 
@@ -212,44 +206,16 @@ for fname in images:
         # Produce datasets and add them to list
         new_corners = df_cnp.reshape(df_cnp.shape[0],1,df_cnp.shape[1])
         new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
-        
-        # Show proyected points and image points
-        if args.plots:
-            scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname) # corners2[:,0,:],
 
         objpoints.append(new_obj3D)
         imgpoints.append(new_corners)
         ret_names.append(ffname)
+        
+        scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
     pbar.update(1)
 pbar.close()
 
 # When everything done, release the frames
 cv2.destroyAllWindows()
 
-# Camera Calibration
-print("Calculating camera matrix...")
-if args.extended:
-    ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
-    pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
-    pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
-else:
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
-
-print('Camera matrix:\n', mtx)
-print('Distortion coefficients:\n', dist)
-if args.extended:
-    print('Error per frame:\n', pVE_extended)
-
-if args.save:
-    summary = input("Insert comments: ")
-    fs = cv2.FileStorage('./tests/res-'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
-    fs.write('summary', summary)
-    fs.write('init_cam_calib', args.calibfile)
-    fs.write('camera_matrix', mtx)
-    fs.write('dist_coeff', dist)
-    if args.extended:
-        pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
-        fs.write('std_intrinsics', stdInt)
-        fs.write('std_extrinsics', stdExt)
-        fs.write('per_view_errors', pVElist)
-    fs.release()
+print("We finished!")
