@@ -159,8 +159,7 @@ objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
-# Rest of images
-pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+# Image 0
 for fname in images[:1]:
     # Read image
     img0 = cv2.imread(fname)
@@ -190,7 +189,7 @@ for fname in images[:1]:
     # Create a list of corners (equivalent of findCirclesGrid)
     corners = np.array(corners, dtype=np.float32)
     
-    if corners.shape[0] > 4.0:
+    if corners.shape[0] > 5.0:
         # Get distance between 2D projected points and 2D image points
         corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
 
@@ -211,7 +210,42 @@ for fname in images[:1]:
         imgpoints.append(new_corners)
         ret_names.append(ffname)
         
-        scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
+        # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
+    img_old = img_gray
+
+orb = cv2.ORB_create()
+
+# Rest of images
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+for fname in images[1:2]:
+    # Read image
+    img0 = cv2.imread(fname)
+    ffname = fname[8+len(args.folder):-4]
+    
+    # Detect points in image
+    img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+    
+    kp1, des1 = orb.detectAndCompute(img_old,None)
+    kp2, des2 = orb.detectAndCompute(img_gray,None)
+    
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    
+    # Match descriptors.
+    matches = bf.match(des1,des2)
+    dmatches = sorted(matches, key=lambda x:x.distance)
+    
+    for m in dmatches:
+        print(kp1[m.queryIdx].pt)
+    
+    # corners = [[[key.pt[0], key.pt[1]]] for key in keypoints]
+    src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
+    dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
+    
+    ## find homography matrix and do perspective transform
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.LMEDS, 5.0)
+
+    new_corners2 = cv2.perspectiveTransform(new_corners, M)
+    
     pbar.update(1)
 pbar.close()
 
