@@ -29,19 +29,22 @@ parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name o
 def displayImage(img, width=1280, height=720, name='Picture'):
     # Small simple function to display images without needing to add the auxiliar functions. By default it reduces the size of the image to 1280x720.
     cv2.imshow(name, cv2.resize(img, (width, height)))
-    # cv2.imwrite(f'./tests/fC51b/{name}.jpg', img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
-def displayImageWPoints(img, *args, name='Picture'):
+def displayImageWPoints(img, *args, name='Picture', save=False):
     if img.ndim == 2:
         img_copy = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     else:
         img_copy = copy.copy(img)
     for arg in args:
+        clr = np.random.randint(128, 192, size=3).tolist()
         for i in range(arg.shape[0]):
-            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
-    displayImage(img_copy, name=name)
+            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 4, [128, 0, 128], -1)
+    if save:
+        cv2.imwrite(f'./tests/fC51c/{name}.jpg', img_copy)
+    else:
+        displayImage(img_copy, name=name)
     
 def scatterPlot(*args, name='Picture'):
     fig = plt.figure(figsize=(12, 7))
@@ -84,7 +87,7 @@ def deleteFarPoints(dataframe, df_projected, limit=75):
 # GSI data import
 
 # Import the 3D points from the csv file
-obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
+obj_3D = pd.read_csv('./videos/Coords/Bundle_fix.csv')[['X','Y','Z']]
 points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
 # Point of interest (center)
@@ -166,71 +169,76 @@ imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
 # Image 0
-for fname in images[:1]:
-    # Read image
-    img0 = cv2.imread(fname)
-    ffname = fname[8+len(args.folder):-4]
+fname = images[0]
     
-    # Detect points in image
-    img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+# Read image
+img0 = cv2.imread(fname)
+ffname = fname[8+len(args.folder):-4]
 
-    # Applying threshold to find points
-    thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
+# Detect points in image
+img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+
+# Applying threshold to find points
+thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
+
+# List position of every point found
+contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+corners = []
+for c in contours:
+    # calculate moments for each contour
+    M = cv2.moments(c)
+
+    # calculate x,y coordinate of center
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+    else:
+        cX, cY = 0, 0
+    corners.append([[cX, cY]])
+
+# Create a list of corners (equivalent of findCirclesGrid)
+corners = np.array(corners, dtype=np.float32)
+
+if corners.shape[0] > 5.0:
+    # Get distance between 2D projected points and 2D image points
+    corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
+
+    # Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
+    corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
+    corners_min = corners_dataframe.idxmin(axis='columns')
+
+    # Delete duplicate points that were not in the GSI point list
+    df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
+    df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
+    df_cnp = df_corners.to_numpy(dtype=np.float32)
+
+    # Produce datasets and add them to list
+    new_corners = df_cnp.reshape(-1,1,2)
+    new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
+
+    objpoints.append(new_obj3D)
+    imgpoints.append(new_corners)
+    ret_names.append(ffname)
     
-    # List position of every point found
-    contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-    corners = []
-    for c in contours:
-        # calculate moments for each contour
-        M = cv2.moments(c)
+    # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
+img_old = img_gray
+ffname_old = ffname
+old_corners = new_corners
 
-        # calculate x,y coordinate of center
-        if M["m00"] != 0:
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
-        else:
-            cX, cY = 0, 0
-        corners.append([[cX, cY]])
-
-    # Create a list of corners (equivalent of findCirclesGrid)
-    corners = np.array(corners, dtype=np.float32)
-    
-    if corners.shape[0] > 5.0:
-        # Get distance between 2D projected points and 2D image points
-        corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
-
-        # Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
-        corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
-        corners_min = corners_dataframe.idxmin(axis='columns')
-
-        # Delete duplicate points that were not in the GSI point list
-        df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
-        df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
-        df_cnp = df_corners.to_numpy(dtype=np.float32)
-
-        # Produce datasets and add them to list
-        new_corners = df_cnp.reshape(-1,1,2)
-        new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
-
-        objpoints.append(new_obj3D)
-        imgpoints.append(new_corners)
-        ret_names.append(ffname)
-        
-        # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
-    img_old = img_gray
-    ffname_old = ffname
-
-orb = cv2.ORB_create(WTA_K=4, edgeThreshold=127, patchSize=127)
+orb = cv2.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
-for fname in images[1:5]:
+for fname in images[1:12]:
     # Read image
     img0 = cv2.imread(fname)
     ffname = fname[8+len(args.folder):-4]
     
     # Detect points in image
     img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+    
+    # Applying threshold to find points
+    thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
     
     kp1, des1 = orb.detectAndCompute(img_old,None)
     kp2, des2 = orb.detectAndCompute(img_gray,None)
@@ -253,26 +261,28 @@ for fname in images[1:5]:
     dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
     
     # Find homography matrix and do perspective transform
-    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.LMEDS, 5.0)
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
     new_corners = cv2.perspectiveTransform(new_corners, M)
+    
+    # for i in range(len(new_corners)):
+    #     print(old_corners[i], new_corners[i])
 
-    displayImageWPoints(img0, new_corners[:,0,:], name=fname)
     #############
     # correct position of points using a patch and finding the highest value. For code targets, i have no idea yet.
     #############
     
+    nc_idx = obj_3D.index.to_list()
     h, w = img_gray.shape
     for i in range(len(new_corners)):
         cnr = new_corners[i]
-        wd = 25
+        wd = 51
         
         x_min = 0 if int(cnr[0,0] - wd) <= 0 else int(cnr[0,0] - wd)
         x_max = w if int(cnr[0,0] + wd) >= w else int(cnr[0,0] + wd)
         y_min = 0 if int(cnr[0,1] - wd) <= 0 else int(cnr[0,1] - wd)
         y_max = h if int(cnr[0,1] + wd) >= h else int(cnr[0,1] + wd)
         
-        thr = cv2.adaptiveThreshold(img_gray[y_min:y_max, x_min:x_max], 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
-        contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(thr[y_min:y_max, x_min:x_max],cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
         if len(contours) == 2:
             M = cv2.moments(contours[1])
@@ -282,7 +292,7 @@ for fname in images[1:5]:
             else:
                 cX, cY = 0, 0
             new_corners[i] = np.array([[x_min+cX, y_min+cY]])
-        else: # cuando se ven más puntos que los que deberían
+        else:
             cntrs = []
             for c in contours:
                 # calculate moments for each contour
@@ -295,8 +305,18 @@ for fname in images[1:5]:
                 else:
                     cX, cY = 0, 0
                 cntrs.append([cX, cY])
-        
-    displayImageWPoints(img0, new_corners[:,0,:], name=fname)
+            cntrs = np.array(cntrs[1:]) # First is dropped since it's always (not sure) pointing the center of the patch
+            if cntrs.shape != (0,):
+                # displayImageWPoints(img0[y_min:y_max, x_min:x_max], name=ffname)
+                if len(cntrs) < 6: # Any case with 2 to 5 points seen
+                    c_idx = distance.cdist(cntrs, np.array([[wd, wd]])).argmin()
+                elif len(cntrs) > 6: # CODETARGETS
+                    c_idx = distance.cdist(cntrs, cntrs.mean(axis=0).reshape(1, 2)).argmin()
+                cX, cY = cntrs[c_idx]
+                new_corners[i] = np.array([[x_min+cX, y_min+cY]])
+        # displayImageWPoints(img0[y_min:y_max, x_min:x_max], np.array([[cX, cY]]), name=ffname)
+    
+    displayImageWPoints(img_gray, new_corners[-15:,0,:], name=ffname)
 
     img_old = img_gray
     ffname_old = ffname
@@ -309,3 +329,10 @@ pbar.close()
 cv2.destroyAllWindows()
 
 print("We finished!")
+
+
+# Borrar puntos inútiles (NUGGET y CSB)
+# Promediar los puntos y de ahí elegir el más cercano al promedio
+# Corregir problema del ORB
+
+#Chequear en la primera parte si los puntos todavía conservan su posición respecto a los datos del obj3D
