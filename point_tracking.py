@@ -7,6 +7,7 @@ import glob
 import argparse
 import json
 import re
+import copy
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
@@ -28,14 +29,19 @@ parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name o
 def displayImage(img, width=1280, height=720, name='Picture'):
     # Small simple function to display images without needing to add the auxiliar functions. By default it reduces the size of the image to 1280x720.
     cv2.imshow(name, cv2.resize(img, (width, height)))
+    # cv2.imwrite(f'./tests/fC51b/{name}.jpg', img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
 def displayImageWPoints(img, *args, name='Picture'):
+    if img.ndim == 2:
+        img_copy = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    else:
+        img_copy = copy.copy(img)
     for arg in args:
         for i in range(arg.shape[0]):
-            cv2.circle(img, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
-    displayImage(img, name=name)
+            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
+    displayImage(img_copy, name=name)
     
 def scatterPlot(*args, name='Picture'):
     fig = plt.figure(figsize=(12, 7))
@@ -212,17 +218,16 @@ for fname in images[:1]:
         
         # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
     img_old = img_gray
+    ffname_old = ffname
 
-orb = cv2.ORB_create()
+orb = cv2.ORB_create(WTA_K=4, edgeThreshold=127, patchSize=127)
 
 # Rest of images
-pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
-for fname in images[1:3]:
+pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
+for fname in images[1:5]:
     # Read image
     img0 = cv2.imread(fname)
     ffname = fname[8+len(args.folder):-4]
-    
-    # displayImageWPoints(img0, new_corners[:,0,:], name=ffname)
     
     # Detect points in image
     img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
@@ -234,20 +239,69 @@ for fname in images[1:3]:
     # img2 = cv2.drawKeypoints(img_gray, kp2, None, color=(0,255,0), flags=0)
     # plt.figure(), plt.imshow(img1), plt.figure(), plt.imshow(img2), plt.show()
     
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING2, crossCheck=True)
     
     # Match descriptors.
     matches = bf.match(des1,des2)
     dmatches = sorted(matches, key=lambda x:x.distance)
     
+    img3 = cv2.drawMatches(img_old,kp1,img_gray,kp2,dmatches[::4],None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    # plt.figure(), plt.imshow(img3), plt.show()
+    # cv2.imwrite(f'./tests/fC51/frames({int(ffname_old[5:])}-{int(ffname[5:])}).jpg', img3)
+    
     src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
     dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
     
-    ## find homography matrix and do perspective transform
-    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RHO, 5.0)
-
+    # Find homography matrix and do perspective transform
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.LMEDS, 5.0)
     new_corners = cv2.perspectiveTransform(new_corners, M)
+
+    displayImageWPoints(img0, new_corners[:,0,:], name=fname)
+    #############
+    # correct position of points using a patch and finding the highest value. For code targets, i have no idea yet.
+    #############
+    
+    h, w = img_gray.shape
+    for i in range(len(new_corners)):
+        cnr = new_corners[i]
+        wd = 25
+        
+        x_min = 0 if int(cnr[0,0] - wd) <= 0 else int(cnr[0,0] - wd)
+        x_max = w if int(cnr[0,0] + wd) >= w else int(cnr[0,0] + wd)
+        y_min = 0 if int(cnr[0,1] - wd) <= 0 else int(cnr[0,1] - wd)
+        y_max = h if int(cnr[0,1] + wd) >= h else int(cnr[0,1] + wd)
+        
+        thr = cv2.adaptiveThreshold(img_gray[y_min:y_max, x_min:x_max], 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
+        contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+        if len(contours) == 2:
+            M = cv2.moments(contours[1])
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+            else:
+                cX, cY = 0, 0
+            new_corners[i] = np.array([[x_min+cX, y_min+cY]])
+        else: # cuando se ven más puntos que los que deberían
+            cntrs = []
+            for c in contours:
+                # calculate moments for each contour
+                M = cv2.moments(c)
+
+                # calculate x,y coordinate of center
+                if M["m00"] != 0:
+                    cX = int(M["m10"] / M["m00"])
+                    cY = int(M["m01"] / M["m00"])
+                else:
+                    cX, cY = 0, 0
+                cntrs.append([cX, cY])
+        
+    displayImageWPoints(img0, new_corners[:,0,:], name=fname)
+
     img_old = img_gray
+    ffname_old = ffname
+    
+    # mejorar lo que hay, luego buscar los puntos dentro de un espacio
     pbar.update(1)
 pbar.close()
 

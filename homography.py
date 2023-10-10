@@ -7,6 +7,7 @@ import glob
 import argparse
 import json
 import re
+import copy
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
@@ -32,10 +33,14 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv2.destroyAllWindows()
     
 def displayImageWPoints(img, *args, name='Picture'):
+    if img.ndim == 2:
+        img_copy = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    else:
+        img_copy = copy.copy(img)
     for arg in args:
         for i in range(arg.shape[0]):
-            cv2.circle(img, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
-    displayImage(img, name=name)
+            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
+    displayImage(img_copy, name=name)
     
 def scatterPlot(*args, name='Picture'):
     fig = plt.figure(figsize=(12, 7))
