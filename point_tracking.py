@@ -38,9 +38,12 @@ def displayImageWPoints(img, *args, name='Picture', save=False):
     else:
         img_copy = copy.copy(img)
     for arg in args:
-        clr = np.random.randint(128, 192, size=3).tolist()
+        clr = [128, 0, 128]
+        if len(args) > 1:
+            clr[1] += 128
+            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
-            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 4, [128, 0, 128], -1)
+            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 4, clr, -1)
     if save:
         cv2.imwrite(f'./tests/fC51c/{name}.jpg', img_copy)
     else:
@@ -168,7 +171,7 @@ objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
-# Image 0
+# Image 0 name
 fname = images[0]
     
 # Read image
@@ -240,6 +243,7 @@ for fname in images[1:12]:
     # Applying threshold to find points
     thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
     
+    # Detect position of each point
     kp1, des1 = orb.detectAndCompute(img_old,None)
     kp2, des2 = orb.detectAndCompute(img_gray,None)
     
@@ -262,20 +266,13 @@ for fname in images[1:12]:
     
     # Find homography matrix and do perspective transform
     M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-    new_corners = cv2.perspectiveTransform(new_corners, M)
+    new_corners = cv2.perspectiveTransform(old_corners, M)
     
-    # for i in range(len(new_corners)):
-    #     print(old_corners[i], new_corners[i])
-
-    #############
-    # correct position of points using a patch and finding the highest value. For code targets, i have no idea yet.
-    #############
-    
-    nc_idx = obj_3D.index.to_list()
+    # Find the correct position of points using a small window and getting the highest value closer to the center.
     h, w = img_gray.shape
     for i in range(len(new_corners)):
         cnr = new_corners[i]
-        wd = 51
+        wd = 63
         
         x_min = 0 if int(cnr[0,0] - wd) <= 0 else int(cnr[0,0] - wd)
         x_max = w if int(cnr[0,0] + wd) >= w else int(cnr[0,0] + wd)
@@ -319,6 +316,7 @@ for fname in images[1:12]:
     displayImageWPoints(img_gray, new_corners[-15:,0,:], name=ffname)
 
     img_old = img_gray
+    old_corners = new_corners
     ffname_old = ffname
     
     # mejorar lo que hay, luego buscar los puntos dentro de un espacio
@@ -330,9 +328,6 @@ cv2.destroyAllWindows()
 
 print("We finished!")
 
-
-# Borrar puntos inútiles (NUGGET y CSB)
-# Promediar los puntos y de ahí elegir el más cercano al promedio
 # Corregir problema del ORB
 
-#Chequear en la primera parte si los puntos todavía conservan su posición respecto a los datos del obj3D
+# Chequear en la primera parte si los puntos todavía conservan su posición respecto a los datos del obj3D. R: Lo están, pero el orden de los puntos cambió, no es problema ya que los ptos 3D también cambiaron
