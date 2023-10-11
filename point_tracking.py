@@ -118,6 +118,13 @@ ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
 ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
 
 #############################################################################
+# Crossmatch
+
+# Initialize crossmatching algorithm functions
+orb = cv2.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
+bf = cv2.BFMatcher(cv2.NORM_HAMMING2, crossCheck=True)
+
+#############################################################################
 # Camera intrinsic parameters for calibration
 
 # Camera matrix
@@ -202,28 +209,27 @@ for c in contours:
 # Create a list of corners (equivalent of findCirclesGrid)
 corners = np.array(corners, dtype=np.float32)
 
-if corners.shape[0] > 5.0:
-    # Get distance between 2D projected points and 2D image points
-    corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
+# Get distance between 2D projected points and 2D image points
+corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
 
-    # Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
-    corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
-    corners_min = corners_dataframe.idxmin(axis='columns')
+# Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
+corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
+corners_min = corners_dataframe.idxmin(axis='columns')
 
-    # Delete duplicate points that were not in the GSI point list
-    df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
-    df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
-    df_cnp = df_corners.to_numpy(dtype=np.float32)
+# Delete duplicate points that were not in the GSI point list
+df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
+df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
+df_cnp = df_corners.to_numpy(dtype=np.float32)
 
-    # Produce datasets and add them to list
-    new_corners = df_cnp.reshape(-1,1,2)
-    new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
+# Produce datasets and add them to list
+new_corners = df_cnp.reshape(-1,1,2)
+new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
 
-    objpoints.append(new_obj3D)
-    imgpoints.append(new_corners)
-    ret_names.append(ffname)
-    
-    # scatterPlot(points_2D[:,0,:], new_corners[:,0,:], name=ffname)
+# Save 3D and 2D point data for calibration
+objpoints.append(new_obj3D)
+imgpoints.append(new_corners)
+ret_names.append(ffname)
+
 img_old = img_gray
 ffname_old = ffname
 old_corners = new_corners
