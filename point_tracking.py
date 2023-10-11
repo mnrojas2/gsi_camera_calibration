@@ -232,7 +232,7 @@ orb = cv2.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
-for fname in images[1:12]:
+for fname in images[1:4]:
     # Read image
     img0 = cv2.imread(fname)
     ffname = fname[8+len(args.folder):-4]
@@ -272,7 +272,7 @@ for fname in images[1:12]:
     h, w = img_gray.shape
     for i in range(len(new_corners)):
         cnr = new_corners[i]
-        wd = 63
+        wd = 31
         
         x_min = 0 if int(cnr[0,0] - wd) <= 0 else int(cnr[0,0] - wd)
         x_max = w if int(cnr[0,0] + wd) >= w else int(cnr[0,0] + wd)
@@ -313,7 +313,7 @@ for fname in images[1:12]:
                 new_corners[i] = np.array([[x_min+cX, y_min+cY]])
         # displayImageWPoints(img0[y_min:y_max, x_min:x_max], np.array([[cX, cY]]), name=ffname)
     
-    displayImageWPoints(img_gray, new_corners[-15:,0,:], name=ffname)
+    displayImageWPoints(img_gray, new_corners[:,0,:], name=ffname)
 
     img_old = img_gray
     old_corners = new_corners
