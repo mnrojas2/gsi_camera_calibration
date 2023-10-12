@@ -199,6 +199,7 @@ objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
+######################################################################################################################################
 # Image 0 name
 fname = images[0]
     
@@ -258,7 +259,6 @@ imgpoints.append(new_corners)
 ret_names.append(ffname)
 
 img_old = img_gray
-old_corners = new_corners
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
@@ -298,6 +298,22 @@ for fname in images[1:]:
     # M, mask = cv.findEssentialMat(src_pts, dst_pts, cameraMatrix=camera_matrix, method=cv.RANSAC, prob=0.9, threshold=1.0)
     
     ct_corners_proy = cv.perspectiveTransform(ct_corners, M)
+    
+    # if int(ffname[5:]) >= 187:
+    #     print('after reprojecting codetargets: \n', ct_corners_proy[:,0,:], '\n', ct_corners_names)
+    #     print(f'length projected {ct_corners_proy.shape}, length names: {len(ct_corners_names)}')
+    
+    # Remove CODETARGETS if reprojections are not inside the image
+    nn_ct_corners_proy = [], nn_ct_corners_name = []
+    for i in range(ct_corners_proy.shape[0]):
+        cnr = ct_corners_proy[i]
+        cnr_n = ct_corners_names[i]
+        if cnr[0,0] > 0 and cnr[0,1] > 0:
+            nn_ct_corners_proy.append(cnr)
+            nn_ct_corners_name.append(cnr_n)
+            
+    ct_corners_proy = np.array(nn_ct_corners_proy)
+    ct_corners_names = nn_ct_corners_name
         
     # Find the correct position of points using a small window and getting the highest value closer to the center.
     h, w = img_gray.shape
@@ -312,7 +328,7 @@ for fname in images[1:]:
         
         contours, hierarchy = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
         
-        # En frame186 al borrar uno de los puntos, se pierde la estabilidad de todo, el resto igual funciona bien
+        # Después del frame966 no hay más valores en el vector de codetargets
         if len(contours) > 1:
             cntrs = []
             for c in contours:
@@ -333,7 +349,8 @@ for fname in images[1:]:
     
     ct_corners = np.array(ct_corners, dtype=np.float64) # index = ct_corners_names
     ct_points_3D = obj_3D.loc[ct_corners_names].to_numpy()
-    #######################################################################################33
+    
+    #########################################################################################
     # Find rest of points using CODETARGET projections
     
     if args.calibfile:
@@ -405,8 +422,6 @@ for fname in images[1:]:
     ret_names.append(ffname)
 
     img_old = img_gray
-    old_corners = new_corners
-    ffname_old = ffname
     pbar.update(1)
 pbar.close()
 
