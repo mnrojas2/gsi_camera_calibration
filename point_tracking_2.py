@@ -299,12 +299,13 @@ for fname in images[1:]:
     
     ct_corners_proy = cv.perspectiveTransform(ct_corners, M)
     
-    # if int(ffname[5:]) >= 187:
-    #     print('after reprojecting codetargets: \n', ct_corners_proy[:,0,:], '\n', ct_corners_names)
-    #     print(f'length projected {ct_corners_proy.shape}, length names: {len(ct_corners_names)}')
+    if int(ffname[5:]) >= 960:
+        # print('after reprojecting codetargets: \n', ct_corners_proy[:,0,:], '\n', ct_corners_names)
+        print(f'length projected {ct_corners_proy.shape}, length names: {len(ct_corners_names)}')
     
     # Remove CODETARGETS if reprojections are not inside the image
-    nn_ct_corners_proy = [], nn_ct_corners_name = []
+    nn_ct_corners_proy = []
+    nn_ct_corners_name = []
     for i in range(ct_corners_proy.shape[0]):
         cnr = ct_corners_proy[i]
         cnr_n = ct_corners_names[i]
@@ -413,8 +414,16 @@ for fname in images[1:]:
     ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx]
     ct_corners = new_corners[ct_corners_idx]
     
+    ct_dict_backup = {}
+    for i in range(len(ct_corners_names)):
+        ct_dict_backup[ct_corners_names[i]] = ct_corners[i].tolist()
+    ct_dict_backup['last_passed_frame'] = ffname
+        
+    with open(f'./tests/data.txt', 'w') as fp:
+        json.dump(ct_dict_backup, fp, indent=4)
+    
     # displayImageWArrays(img0, new_corners[:,0,:], name=ffname, save=False)
-    displayImageWDataframe(img0, df_corners, name=ffname, show_names=True, save=True)
+    # displayImageWDataframe(img0, df_corners, name=ffname, show_names=True, save=True)
 
     # Save 3D and 2D point data for calibration
     objpoints.append(new_obj3D)
