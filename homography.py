@@ -32,15 +32,43 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.waitKey(0)
     cv.destroyAllWindows()
     
-def displayImageWPoints(img, *args, name='Picture'):
+def displayImageWArrays(img, *args, name='Image', save=False):
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
         img_copy = copy.copy(img)
     for arg in args:
+        clr = [128, 0, 128]
+        if len(args) > 1:
+            clr[1] += 128
+            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
-            cv.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
-    displayImage(img_copy, name=name)
+            cv.circle(img_copy, arg[i].astype(int), 4, clr, -1)
+    if save:
+        cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
+    else:
+        displayImage(img_copy, name=name)
+        
+def displayImageWDataframe(img, *args, name='Image', show_names=False, save=False):
+    if img.ndim == 2:
+        img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
+    else:
+        img_copy = copy.copy(img)
+    for arg in args:
+        keys = arg.index.to_list()
+        values = arg.to_numpy().astype(int)
+        clr = [128, 0, 128]
+        if len(args) > 1:
+            clr[1] += 128
+            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
+        for i in range(arg.shape[0]):
+            cv.circle(img_copy, (int(values[i,0]), int(values[i,1])), 4, clr, -1)
+            if show_names:
+                cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
+    if save:
+        cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
+    else:
+        displayImage(img_copy, name=name)
     
 def scatterPlot(*args, name='Picture'):
     fig = plt.figure(figsize=(12, 7))
