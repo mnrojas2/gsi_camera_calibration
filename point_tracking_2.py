@@ -31,39 +31,27 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.imshow(name, cv.resize(img, (width, height)))
     cv.waitKey(0)
     cv.destroyAllWindows()
-    
-def displayImageWArrays(img, *args, name='Image', save=False):
-    if img.ndim == 2:
-        img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
-    else:
-        img_copy = copy.copy(img)
-    for arg in args:
-        clr = [128, 0, 128]
-        if len(args) > 1:
-            clr[1] += 128
-            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
-        for i in range(arg.shape[0]):
-            cv.circle(img_copy, arg[i].astype(int), 4, clr, -1)
-    if save:
-        cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
-    else:
-        displayImage(img_copy, name=name)
         
-def displayImageWDataframe(img, *args, name='Image', show_names=False, save=False):
+def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
         img_copy = copy.copy(img)
     for arg in args:
-        keys = arg.index.to_list()
-        values = arg.to_numpy().astype(int)
+        if isinstance(arg, np.ndarray):
+            values = arg.reshape(-1,2).astype(int)
+        elif isinstance(arg, pd.DataFrame):
+            keys = arg.index.to_list()
+            values = arg.to_numpy().astype(int)
+        else:
+            raise TypeError('Current points format is not allowed.')
         clr = [128, 0, 128]
         if len(args) > 1:
             clr[1] += 128
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
             cv.circle(img_copy, values[i], 4, clr, -1)
-            if show_names:
+            if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
         cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
@@ -135,17 +123,25 @@ ct_frame_dict = {
 		"CODE133": [1402, 957],
 		"CODE134": [1789, 960]
 	}
-last_frame = 0
-
-# Or load .txt file with some specific frame codetarget locations
-# with open('./tests/data_saved.txt') as json_file:
-#     ct_frame_dict = json.load(json_file)
-    
-# last_frame = int(ct_frame_dict['last_passed_frame'][5:])
-# ct_frame_dict.pop('last_passed_frame')
-
+start_frame = 0
 ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
 ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
+
+# Or load .txt file with some specific frame codetarget locations
+# with open('./tests/data_dict.txt') as json_file:
+#     frame_dict = json.load(json_file)
+    
+# start_frame = int(frame_dict['last_passed_frame'][5:])
+# frame_dict.pop('last_passed_frame')
+
+# df_frame = pd.DataFrame.from_dict(frame_dict)
+# cframes = df_frame.to_numpy().reshape(-1,1,2)
+
+# ct_idx = [df_frame.index.get_loc(idx) for idx in df_frame.index if 'CODE' in idx]
+# ct_names = [idx for idx in df_frame.index if 'CODE' in idx] # or idx in ['TARGET323', 'TARGET165']]
+
+# ct_frame = cframes[ct_idx]
+# ct_points_3D = obj_3D.loc[ct_names].to_numpy()
 
 #############################################################################
 # Crossmatch
@@ -210,7 +206,7 @@ ret_names = [] # names of every frame for tabulation
 
 ######################################################################################################################################
 # Image 0 name
-fname = images[last_frame] #[0]
+fname = images[start_frame] #[0]
     
 # Read image
 img0 = cv.imread(fname)
@@ -271,9 +267,9 @@ img_old = img_gray
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
-if last_frame != 0:
-    pbar.update(last_frame)
-for fname in images[last_frame+1:]:
+if start_frame != 0:
+    pbar.update(start_frame)
+for fname in images[start_frame+1:]:
     # Read image
     img0 = cv.imread(fname)
     ffname = fname[8+len(args.folder):-4]
@@ -374,9 +370,6 @@ for fname in images[last_frame+1:]:
         
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
     
-    # df_ct_corn = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
-    # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_names=True, save=True)
-    
     # List position of every point found
     contours, hierarchy = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
     corners = []
@@ -414,19 +407,25 @@ for fname in images[last_frame+1:]:
     # Get position of CODETARGETS
     ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx]
     ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx]
+    
+    # if number of CODETARGETS is under 6, add random targetpoints to compensate
+    if len(ct_corners_names) <= 6:
+        c = 0
+        ###
+        ###
+        # ct_corners_idx += 
+        # ct_corners_names += 
+    
     ct_corners = new_corners[ct_corners_idx]
     
-    # Save codetarget data in a .txt file in case it's necessary to restart halfway.
-    ct_dict_backup = {}
-    for i in range(len(ct_corners_names)):
-        ct_dict_backup[ct_corners_names[i]] = ct_corners[i].tolist()
-    ct_dict_backup['last_passed_frame'] = ffname
-        
-    with open(f'./tests/data.txt', 'w') as fp:
-        json.dump(ct_dict_backup, fp, indent=4)
+    # Save CODETARGETS data in a .txt file in case it's necessary to restart halfway.
+    save_corners = df_corners.to_dict()
+    save_corners['last_passed_frame'] = ffname
+    with open(f'./tests/datadict.txt', 'w') as fp:
+        json.dump(save_corners, fp, indent=4)
     
-    # displayImageWArrays(img0, new_corners[:,0,:], name=ffname, save=False)
-    displayImageWDataframe(img0, df_corners, name=ffname, show_names=True, save=True)
+    # displayImageWPoints(img0, new_corners, name=ffname, save=False)
+    displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
     
     # df_ct_corn = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
     # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_names=True, save=True)

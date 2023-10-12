@@ -32,41 +32,29 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.waitKey(0)
     cv.destroyAllWindows()
     
-def displayImageWArrays(img, *args, name='Image', save=False):
+def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
         img_copy = copy.copy(img)
     for arg in args:
-        clr = [128, 0, 128]
-        if len(args) > 1:
-            clr[1] += 128
-            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
-        for i in range(arg.shape[0]):
-            cv.circle(img_copy, arg[i].astype(int), 4, clr, -1)
-    if save:
-        cv.imwrite(f'./tests/fC51d/{name}.jpg', img_copy)
-    else:
-        displayImage(img_copy, name=name)
-        
-def displayImageWDataframe(img, *args, name='Image', show_names=False, save=False):
-    if img.ndim == 2:
-        img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
-    else:
-        img_copy = copy.copy(img)
-    for arg in args:
-        keys = arg.index.to_list()
-        values = arg.to_numpy().astype(int)
+        if isinstance(arg, np.ndarray):
+            values = arg.reshape(-1,2).astype(int)
+        elif isinstance(arg, pd.DataFrame):
+            keys = arg.index.to_list()
+            values = arg.to_numpy().astype(int)
+        else:
+            raise TypeError('Current points format is not allowed.')
         clr = [128, 0, 128]
         if len(args) > 1:
             clr[1] += 128
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
             cv.circle(img_copy, values[i], 4, clr, -1)
-            if show_names:
+            if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
-        cv.imwrite(f'./tests/fC51d/{name}.jpg', img_copy)
+        cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -331,16 +319,16 @@ for fname in images[1:4]:
                 cntrs.append([cX, cY])
             cntrs = np.array(cntrs[1:]) # First is dropped since it's always (not sure) pointing the center of the patch
             if cntrs.shape != (0,):
-                # displayImageWArrays(img0[y_min:y_max, x_min:x_max], name=ffname)
+                # displayImageWPoints(img0[y_min:y_max, x_min:x_max], name=ffname)
                 if len(cntrs) < 6: # Any case with 2 to 5 points seen
                     c_idx = distance.cdist(cntrs, np.array([[wd, wd]])).argmin()
                 elif len(cntrs) > 6: # CODETARGETS
                     c_idx = distance.cdist(cntrs, cntrs.mean(axis=0).reshape(1, 2)).argmin()
                 cX, cY = cntrs[c_idx]
                 new_corners[i] = np.array([[x_min+cX, y_min+cY]])
-        # displayImageWArrays(img0[y_min:y_max, x_min:x_max], np.array([[cX, cY]]), name=ffname)
+        # displayImageWPoints(img0[y_min:y_max, x_min:x_max], np.array([[cX, cY]]), name=ffname)
     
-    displayImageWArrays(img_gray, new_corners[:,0,:], name=ffname)
+    displayImageWPoints(img_gray, new_corners[:,0,:], name=ffname)
 
     img_old = img_gray
     old_corners = new_corners
