@@ -62,7 +62,7 @@ def displayImageWDataframe(img, *args, name='Image', show_names=False, save=Fals
             clr[1] += 128
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
-            cv.circle(img_copy, (int(values[i,0]), int(values[i,1])), 4, clr, -1)
+            cv.circle(img_copy, values[i], 4, clr, -1)
             if show_names:
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
@@ -70,7 +70,7 @@ def displayImageWDataframe(img, *args, name='Image', show_names=False, save=Fals
     else:
         displayImage(img_copy, name=name)
     
-def scatterPlot(*args, name='Picture'):
+def scatterPlot(*args, name='Image'):
     fig = plt.figure(figsize=(12, 7))
     ax = fig.add_subplot(111)
     for arg in args:

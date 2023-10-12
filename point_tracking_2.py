@@ -62,7 +62,7 @@ def displayImageWDataframe(img, *args, name='Image', show_names=False, save=Fals
             clr[1] += 128
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
-            cv.circle(img_copy, (int(values[i,0]), int(values[i,1])), 4, clr, -1)
+            cv.circle(img_copy, values[i], 4, clr, -1)
             if show_names:
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
@@ -70,7 +70,7 @@ def displayImageWDataframe(img, *args, name='Image', show_names=False, save=Fals
     else:
         displayImage(img_copy, name=name)
     
-def scatterPlot(*args, name='Picture'):
+def scatterPlot(*args, name='Image'):
     fig = plt.figure(figsize=(12, 7))
     ax = fig.add_subplot(111)
     for arg in args:
@@ -135,6 +135,15 @@ ct_frame_dict = {
 		"CODE133": [1402, 957],
 		"CODE134": [1789, 960]
 	}
+last_frame = 0
+
+# Or load .txt file with some specific frame codetarget locations
+# with open('./tests/data_saved.txt') as json_file:
+#     ct_frame_dict = json.load(json_file)
+    
+# last_frame = int(ct_frame_dict['last_passed_frame'][5:])
+# ct_frame_dict.pop('last_passed_frame')
+
 ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
 ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
 
@@ -201,7 +210,7 @@ ret_names = [] # names of every frame for tabulation
 
 ######################################################################################################################################
 # Image 0 name
-fname = images[0]
+fname = images[last_frame] #[0]
     
 # Read image
 img0 = cv.imread(fname)
@@ -262,7 +271,9 @@ img_old = img_gray
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
-for fname in images[1:]:
+if last_frame != 0:
+    pbar.update(last_frame)
+for fname in images[last_frame+1:]:
     # Read image
     img0 = cv.imread(fname)
     ffname = fname[8+len(args.folder):-4]
@@ -299,26 +310,17 @@ for fname in images[1:]:
     
     ct_corners_proy = cv.perspectiveTransform(ct_corners, M)
     
-    if int(ffname[5:]) >= 960:
-        # print('after reprojecting codetargets: \n', ct_corners_proy[:,0,:], '\n', ct_corners_names)
-        print(f'length projected {ct_corners_proy.shape}, length names: {len(ct_corners_names)}')
-    
     # Remove CODETARGETS if reprojections are not inside the image
-    nn_ct_corners_proy = []
-    nn_ct_corners_name = []
-    for i in range(ct_corners_proy.shape[0]):
-        cnr = ct_corners_proy[i]
-        cnr_n = ct_corners_names[i]
-        if cnr[0,0] > 0 and cnr[0,1] > 0:
-            nn_ct_corners_proy.append(cnr)
-            nn_ct_corners_name.append(cnr_n)
+    nn_ct_proy = [ct_corners_proy[i] for i in range(ct_corners_proy.shape[0]) if ct_corners_proy[i,0,0] > 0 and ct_corners_proy[i,0,1] > 0]
+    nn_ct_name = [ct_corners_names[i] for i in range(ct_corners_proy.shape[0]) if ct_corners_proy[i,0,0] > 0 and ct_corners_proy[i,0,1] > 0]
             
-    ct_corners_proy = np.array(nn_ct_corners_proy)
-    ct_corners_names = nn_ct_corners_name
+    ct_corners_proy = np.array(nn_ct_proy)
+    ct_corners_names = nn_ct_name
         
     # Find the correct position of points using a small window and getting the highest value closer to the center.
     h, w = img_gray.shape
     ct_corners = []
+    ct_names_fix = []
     for i in range(ct_corners_proy.shape[0]):
         cnr = ct_corners_proy[i]
         wd = 24
@@ -345,10 +347,10 @@ for fname in images[1:]:
             c_idx = distance.cdist(cntrs, cntrs.mean(axis=0).reshape(1, 2)).argmin()
             cX, cY = cntrs[c_idx]
             ct_corners.append([[x_min+cX, y_min+cY]])
-        else:
-            del ct_corners_names[i]
+            ct_names_fix.append(ct_corners_names[i])
     
     ct_corners = np.array(ct_corners, dtype=np.float64) # index = ct_corners_names
+    ct_corners_names = ct_names_fix
     ct_points_3D = obj_3D.loc[ct_corners_names].to_numpy()
     
     #########################################################################################
@@ -373,7 +375,7 @@ for fname in images[1:]:
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
     
     # df_ct_corn = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
-    # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_name=True, save=True)
+    # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_names=True, save=True)
     
     # List position of every point found
     contours, hierarchy = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
@@ -414,6 +416,7 @@ for fname in images[1:]:
     ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx]
     ct_corners = new_corners[ct_corners_idx]
     
+    # Save codetarget data in a .txt file in case it's necessary to restart halfway.
     ct_dict_backup = {}
     for i in range(len(ct_corners_names)):
         ct_dict_backup[ct_corners_names[i]] = ct_corners[i].tolist()
@@ -423,7 +426,10 @@ for fname in images[1:]:
         json.dump(ct_dict_backup, fp, indent=4)
     
     # displayImageWArrays(img0, new_corners[:,0,:], name=ffname, save=False)
-    # displayImageWDataframe(img0, df_corners, name=ffname, show_names=True, save=True)
+    displayImageWDataframe(img0, df_corners, name=ffname, show_names=True, save=True)
+    
+    # df_ct_corn = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
+    # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_names=True, save=True)
 
     # Save 3D and 2D point data for calibration
     objpoints.append(new_obj3D)
