@@ -1,8 +1,8 @@
+import cv2 as cv
 import argparse
 import glob
 import pandas as pd
 from matplotlib import pyplot as plt
-import cv2
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and creates a .xlsx with tabulated data.')
@@ -22,7 +22,7 @@ def main():
 
     cc_data = {}
     for calibfile in calibrationFiles:
-        fs = cv2.FileStorage(calibfile, cv2.FILE_STORAGE_READ)
+        fs = cv.FileStorage(calibfile, cv.FILE_STORAGE_READ)
         mtx = fs.getNode("camera_matrix")
         dcff = fs.getNode("dist_coeff")
 

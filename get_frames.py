@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import cv2
+import cv2 as cv
 import os
 import argparse
 from tqdm import tqdm
@@ -19,10 +19,10 @@ def main():
     
     try:
         # Start the video to take the necessary frames
-        vidcap = cv2.VideoCapture('videos/'+args.origin_folder+'/'+args.vidname+'.mp4')
-        total_frame_count = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+        vidcap = cv.VideoCapture('videos/'+args.origin_folder+'/'+args.vidname+'.mp4')
+        total_frame_count = int(vidcap.get(cv.CAP_PROP_FRAME_COUNT))
         if total_frame_count == 0:
-            # Since cv2.VideoCapture can't force errors when no video is found, we do it manually.
+            # Since cv.VideoCapture can't force errors when no video is found, we do it manually.
             raise IndexError
         
         # Create output folder if it wasn't created yet
@@ -37,7 +37,7 @@ def main():
             frame_exists, curr_frame = vidcap.read()
             if frame_exists:
                 if frame_no % args.reduction == args.residue:
-                    cv2.imwrite("sets/"+args.vidname+"/frame%d.jpg" % frame_no, curr_frame)
+                    cv.imwrite("sets/"+args.vidname+"/frame%d.jpg" % frame_no, curr_frame)
             else:
                 pbar.close()
                 print(f'All frames were saved in /sets/{args.vidname}')

@@ -13,7 +13,7 @@
 
 # Standard imports
 import numpy as np
-import cv2
+import cv2 as cv
 import glob
 import argparse
 from tqdm import tqdm
@@ -22,14 +22,14 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
 parser.add_argument('-s', '--scale', type=int, metavar='N', default=0, choices=range(100), help='Scales down the image to get faster (and less reliable) results (range=0:9, default=0) .')
-parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv2.calibrateCameraExtended instead of the default function.')
+parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 
 # termination criteria
-criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 ########################################Blob Detector##############################################
 # Setup SimpleBlobDetector parameters.
-blobParams = cv2.SimpleBlobDetector_Params()
+blobParams = cv.SimpleBlobDetector_Params()
 
 # Change thresholds
 blobParams.minThreshold = 8
@@ -53,7 +53,7 @@ blobParams.filterByInertia = True
 blobParams.minInertiaRatio = 0.01
 
 # Create a detector with the parameters
-blobDetector = cv2.SimpleBlobDetector_create(blobParams)
+blobDetector = cv.SimpleBlobDetector_create(blobParams)
 ###################################################################################################
 # Original blob coordinates, supposing all blobs are of z-coordinates 0
 # And, the distance between every two neighbour blob circle centers is 72 centimetres
@@ -126,32 +126,32 @@ def main():
 
     pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
     for fname in images:
-        img = cv2.imread(fname)
+        img = cv.imread(fname)
         
         # resize image
         if args.scale != 0:
             width = int(img.shape[1] * (1-args.scale/100))
             height = int(img.shape[0] * (1-args.scale/100))
             dim = (width, height)
-            img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+            img = cv.resize(img, dim, interpolation = cv.INTER_AREA)
             
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
         keypoints = blobDetector.detect(gray) # Detect blobs.
 
-        # Draw detected blobs as red circles. This helps cv2.findCirclesGrid() . 
-        im_with_keypoints = cv2.drawKeypoints(img, keypoints, np.array([]), (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        im_with_keypoints_gray = cv2.cvtColor(im_with_keypoints, cv2.COLOR_BGR2GRAY)
-        ret, corners = cv2.findCirclesGrid(im_with_keypoints, (4,11), None, flags = cv2.CALIB_CB_ASYMMETRIC_GRID)   # Find the circle grid
+        # Draw detected blobs as red circles. This helps cv.findCirclesGrid() . 
+        im_with_keypoints = cv.drawKeypoints(img, keypoints, np.array([]), (0,255,0), cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        im_with_keypoints_gray = cv.cvtColor(im_with_keypoints, cv.COLOR_BGR2GRAY)
+        ret, corners = cv.findCirclesGrid(im_with_keypoints, (4,11), None, flags = cv.CALIB_CB_ASYMMETRIC_GRID)   # Find the circle grid
 
         if ret == True:
             objpoints.append(objp)  # Certainly, every loop objp is the same, in 3D.
 
-            corners2 = cv2.cornerSubPix(im_with_keypoints_gray, corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
+            corners2 = cv.cornerSubPix(im_with_keypoints_gray, corners, (11,11), (-1,-1), criteria)    # Refines the corner locations.
             imgpoints.append(corners2)
 
             # Draw and display the corners.
-            im_with_keypoints = cv2.drawChessboardCorners(img, (4,11), corners2, ret)
+            im_with_keypoints = cv.drawChessboardCorners(img, (4,11), corners2, ret)
             
             # Save some data
             ret_names.append(fname[8+len(args.folder):-4])
@@ -162,7 +162,7 @@ def main():
     pbar.close()
 
     # When everything done, release the capture
-    cv2.destroyAllWindows()
+    cv.destroyAllWindows()
 
     print("Calculating camera matrix...")
 
@@ -173,18 +173,18 @@ def main():
     camera_matrix[1, 2] = 1093.929 # float(img.shape[0]) / 2.0
 
     # Flags
-    flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
-    # flags_model |= cv2.CALIB_RATIONAL_MODEL # Enable 6 rotation distortion constants instead of 3
+    flags_model = cv.CALIB_USE_INTRINSIC_GUESS
+    # flags_model |= cv.CALIB_RATIONAL_MODEL # Enable 6 rotation distortion constants instead of 3
 
     if not args.extended:
-        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+        ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
     else:
-        ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, gray.shape[::-1], cameraMatrix=camera_matrix, distCoeffs=None,
+        ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, gray.shape[::-1], cameraMatrix=camera_matrix, distCoeffs=None,
                                             flags=flags_model)
         pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
 
     #  Python code to write the image (OpenCV 3.2)
-    fs = cv2.FileStorage('./results/calibration'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
+    fs = cv.FileStorage('./results/calibration'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     if args.extended:
@@ -203,17 +203,17 @@ def main():
     
     # # Using the derived camera parameters to undistort the image
 
-    # img = cv2.imread(images[0])
+    # img = cv.imread(images[0])
     # # Refining the camera matrix using parameters obtained by calibration
-    # newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+    # newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
 
     # # Method 1 to undistort the image
-    # dst = cv2.undistort(img, mtx, dist, None, newcameramtx)
+    # dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 
     # # Method 2 to undistort the image
-    # mapx,mapy=cv2.initUndistortRectifyMap(mtx,dist,None,newcameramtx,(w,h),5)
+    # mapx,mapy=cv.initUndistortRectifyMap(mtx,dist,None,newcameramtx,(w,h),5)
 
-    # dst = cv2.remap(img,mapx,mapy,cv2.INTER_LINEAR)
+    # dst = cv.remap(img,mapx,mapy,cv.INTER_LINEAR)
     
 if __name__ == '__main__':
     main()

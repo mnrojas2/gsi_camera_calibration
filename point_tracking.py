@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import cv2
+import cv2 as cv
 import numpy as np
 import pandas as pd
 import glob
@@ -16,7 +16,7 @@ from scipy.spatial import distance
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
-parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv2.calibrateCameraExtended instead of the default function.')
+parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
 parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
 parser.add_argument('-p', '--plots', action='store_true', default=False, help='Shows plots of every frame with image points and projected points.')
@@ -28,13 +28,13 @@ parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name o
 
 def displayImage(img, width=1280, height=720, name='Picture'):
     # Small simple function to display images without needing to add the auxiliar functions. By default it reduces the size of the image to 1280x720.
-    cv2.imshow(name, cv2.resize(img, (width, height)))
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    cv.imshow(name, cv.resize(img, (width, height)))
+    cv.waitKey(0)
+    cv.destroyAllWindows()
     
 def displayImageWPoints(img, *args, name='Picture', save=False):
     if img.ndim == 2:
-        img_copy = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
         img_copy = copy.copy(img)
     for arg in args:
@@ -43,9 +43,9 @@ def displayImageWPoints(img, *args, name='Picture', save=False):
             clr[1] += 128
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
-            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 4, clr, -1)
+            cv.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 4, clr, -1)
     if save:
-        cv2.imwrite(f'./tests/fC51c/{name}.jpg', img_copy)
+        cv.imwrite(f'./tests/fC51c/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -121,8 +121,8 @@ ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
 # Crossmatch
 
 # Initialize crossmatching algorithm functions
-orb = cv2.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
-bf = cv2.BFMatcher(cv2.NORM_HAMMING2, crossCheck=True)
+orb = cv.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
+bf = cv.BFMatcher(cv.NORM_HAMMING2, crossCheck=True)
 
 #############################################################################
 # Camera intrinsic parameters for calibration
@@ -152,20 +152,20 @@ args = parser.parse_args()
 
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
-    fs = cv2.FileStorage('./tests/'+args.calibfile+'.yml', cv2.FILE_STORAGE_READ)
+    fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
     camera_matrix = fs.getNode("camera_matrix").mat()
     dist_coeff = fs.getNode("dist_coeff").mat()[:8]
     print(f'Imported calibration parameters from /{args.calibfile}.yml/')
 
     # Get angle of camera by matching known 2D points with 3D points
-    res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
+    res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
     
     # Make simulated image with 3D points data
-    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
 else:
     # Solve the matching without considering distortion coefficients
-    res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
-    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
+    res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
+    points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
     
 df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
 
@@ -182,21 +182,21 @@ ret_names = [] # names of every frame for tabulation
 fname = images[0]
     
 # Read image
-img0 = cv2.imread(fname)
+img0 = cv.imread(fname)
 ffname = fname[8+len(args.folder):-4]
 
 # Detect points in image
-img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
 
 # Applying threshold to find points
-thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
+thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -128)
 
 # List position of every point found
-contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+contours, hierarchy = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
 corners = []
 for c in contours:
     # calculate moments for each contour
-    M = cv2.moments(c)
+    M = cv.moments(c)
 
     # calculate x,y coordinate of center
     if M["m00"] != 0:
@@ -234,45 +234,45 @@ img_old = img_gray
 ffname_old = ffname
 old_corners = new_corners
 
-orb = cv2.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
+orb = cv.ORB_create(WTA_K=4, edgeThreshold=255, patchSize=255)
 
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
 for fname in images[1:4]:
     # Read image
-    img0 = cv2.imread(fname)
+    img0 = cv.imread(fname)
     ffname = fname[8+len(args.folder):-4]
     
     # Detect points in image
-    img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+    img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
     
     # Applying threshold to find points
-    thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
+    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -128)
     
     # Detect position of each point
     kp1, des1 = orb.detectAndCompute(img_old,None)
     kp2, des2 = orb.detectAndCompute(img_gray,None)
     
-    # img1 = cv2.drawKeypoints(img_old, kp1, None, color=(0,255,0), flags=0)
-    # img2 = cv2.drawKeypoints(img_gray, kp2, None, color=(0,255,0), flags=0)
+    # img1 = cv.drawKeypoints(img_old, kp1, None, color=(0,255,0), flags=0)
+    # img2 = cv.drawKeypoints(img_gray, kp2, None, color=(0,255,0), flags=0)
     # plt.figure(), plt.imshow(img1), plt.figure(), plt.imshow(img2), plt.show()
     
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING2, crossCheck=True)
+    bf = cv.BFMatcher(cv.NORM_HAMMING2, crossCheck=True)
     
     # Match descriptors.
     matches = bf.match(des1,des2)
     dmatches = sorted(matches, key=lambda x:x.distance)
     
-    img3 = cv2.drawMatches(img_old,kp1,img_gray,kp2,dmatches[::4],None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,dmatches[::4],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
     # plt.figure(), plt.imshow(img3), plt.show()
-    # cv2.imwrite(f'./tests/fC51/frames({int(ffname_old[5:])}-{int(ffname[5:])}).jpg', img3)
+    # cv.imwrite(f'./tests/fC51/frames({int(ffname_old[5:])}-{int(ffname[5:])}).jpg', img3)
     
     src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
     dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
     
     # Find homography matrix and do perspective transform
-    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-    new_corners = cv2.perspectiveTransform(old_corners, M)
+    M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+    new_corners = cv.perspectiveTransform(old_corners, M)
     
     # Find the correct position of points using a small window and getting the highest value closer to the center.
     h, w = img_gray.shape
@@ -285,10 +285,10 @@ for fname in images[1:4]:
         y_min = 0 if int(cnr[0,1] - wd) <= 0 else int(cnr[0,1] - wd)
         y_max = h if int(cnr[0,1] + wd) >= h else int(cnr[0,1] + wd)
         
-        contours, hierarchy = cv2.findContours(thr[y_min:y_max, x_min:x_max],cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
 
         if len(contours) == 2:
-            M = cv2.moments(contours[1])
+            M = cv.moments(contours[1])
             if M["m00"] != 0:
                 cX = int(M["m10"] / M["m00"])
                 cY = int(M["m01"] / M["m00"])
@@ -299,7 +299,7 @@ for fname in images[1:4]:
             cntrs = []
             for c in contours:
                 # calculate moments for each contour
-                M = cv2.moments(c)
+                M = cv.moments(c)
 
                 # calculate x,y coordinate of center
                 if M["m00"] != 0:
@@ -330,7 +330,7 @@ for fname in images[1:4]:
 pbar.close()
 
 # When everything done, release the frames
-cv2.destroyAllWindows()
+cv.destroyAllWindows()
 
 print("We finished!")
 

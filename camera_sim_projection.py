@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import cv2
+import cv2 as cv
 import numpy as np
 import pandas as pd
 import argparse
@@ -40,7 +40,7 @@ def plot_vectors(**kwargs):
 
 # Auxiliar function to calculate the RMSE between 2D points and simulated 2D points given intrinsic and extrinsic parameters of the camera.        
 def projectionError(points_3D, points_2D, rvec, tvec, camera_matrix, dist_coeff):
-    proj = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    proj = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
     proj = proj.reshape(proj.shape[0], proj.shape[-1])
     res = proj - points_2D.reshape(points_2D.shape[0], points_2D.shape[-1])
 
@@ -110,7 +110,7 @@ def main():
     dist_coeff = np.zeros(5, np.float32) # Zero distortion
 
     # Simulate a picture of the camera using camera matrix and array of distortion coefficients
-    points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
     
     # Plot 3D points, camera position and rotation and 2D points
     plot_vectors(p3D=points_3D, p2D=points_2D, camera=tvec, target=np.array([0,0,0]))
@@ -121,7 +121,7 @@ def main():
     # Reprojection check
 
     # Try to make a match of both to check if the solution is in itself consistent
-    res, rvec0, tvec0 = cv2.solvePnP(points_3D, points_2D, camera_matrix, dist_coeff)
+    res, rvec0, tvec0 = cv.solvePnP(points_3D, points_2D, camera_matrix, dist_coeff)
 
     # Convert the resultant  extrinsic rotation vector/matrix back to angles
     ang = cam_r.as_quat(canonical=True)

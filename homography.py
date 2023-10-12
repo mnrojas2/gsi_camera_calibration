@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import cv2
+import cv2 as cv
 import numpy as np
 import pandas as pd
 import glob
@@ -16,7 +16,7 @@ from scipy.spatial import distance
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
-parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv2.calibrateCameraExtended instead of the default function.')
+parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
 parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
 parser.add_argument('-p', '--plots', action='store_true', default=False, help='Shows plots of every frame with image points and projected points.')
@@ -28,18 +28,18 @@ parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name o
 
 def displayImage(img, width=1280, height=720, name='Picture'):
     # Small simple function to display images without needing to add the auxiliar functions. By default it reduces the size of the image to 1280x720.
-    cv2.imshow(name, cv2.resize(img, (width, height)))
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    cv.imshow(name, cv.resize(img, (width, height)))
+    cv.waitKey(0)
+    cv.destroyAllWindows()
     
 def displayImageWPoints(img, *args, name='Picture'):
     if img.ndim == 2:
-        img_copy = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
         img_copy = copy.copy(img)
     for arg in args:
         for i in range(arg.shape[0]):
-            cv2.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
+            cv.circle(img_copy, (int(arg[i,0]), int(arg[i,1])), 5, (128, 0, 128), -1)
     displayImage(img_copy, name=name)
     
 def scatterPlot(*args, name='Picture'):
@@ -118,7 +118,7 @@ k3 = -0.11974069
 dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3])) # , [k4], [k5], [k6]))
 
 # Flags
-flags_model = cv2.CALIB_USE_INTRINSIC_GUESS
+flags_model = cv.CALIB_USE_INTRINSIC_GUESS
 # CALIB_USE_INTRINSIC_GUESS: Calibration needs a preliminar camera_matrix to start (necessary in non-planar cases)
 # CALIB_RATIONAL_MODEL: Enable 6 rotation distortion constants instead of 3
 
@@ -132,14 +132,14 @@ if args.extended:
 
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
-    fs = cv2.FileStorage('./tests/'+args.calibfile+'.yml', cv2.FILE_STORAGE_READ)
+    fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
     camera_matrix = fs.getNode("camera_matrix").mat()
     dist_coeff = fs.getNode("dist_coeff").mat()[:8]
     print(f'Imported calibration parameters from /{args.calibfile}.yml/')
 
 # Camera Calibration Flags
 if args.k456:
-    flags_model |= cv2.CALIB_RATIONAL_MODEL
+    flags_model |= cv.CALIB_RATIONAL_MODEL
     print(f'CALIB_RATIONAL_MODEL flag set')
 
 # Get images from directory
@@ -154,7 +154,7 @@ ret_names = [] # names of every frame for tabulation
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
 for fname in images:
     # Read image
-    img0 = cv2.imread(fname)
+    img0 = cv.imread(fname)
     ffname = fname[8+len(args.folder)+1:-4]
     
     # Get list of codetargets from manually found point list
@@ -164,31 +164,31 @@ for fname in images:
     
     if args.calibfile:
         # Get angle of camera by matching known 2D points with 3D points
-        res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
+        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_frame, camera_matrix, dist_coeff)
         
         # Make simulated image with 3D points data
-        points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+        points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
     else:
         # Solve the matching without considering distortion coefficients
-        res, rvec, tvec = cv2.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
-        points_2D = cv2.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
+        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_frame, camera_matrix, None)
+        points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
     # r0 = R.from_rotvec(rvec.flatten())
     # print(ffname, r0.as_euler('XYZ', degrees=True))
     
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
 
     # Detect points in image
-    img_gray = cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY)
+    img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
 
     # Applying threshold to find points
-    thr = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, -128)
+    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -128)
     
     # List position of every point found
-    contours, hierarchy = cv2.findContours(thr,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
     corners = []
     for c in contours:
         # calculate moments for each contour
-        M = cv2.moments(c)
+        M = cv.moments(c)
 
         # calculate x,y coordinate of center
         if M["m00"] != 0:
@@ -229,16 +229,16 @@ for fname in images:
 pbar.close()
 
 # When everything done, release the frames
-cv2.destroyAllWindows()
+cv.destroyAllWindows()
 
 # Camera Calibration
 print("Calculating camera matrix...")
 if args.extended:
-    ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv2.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+    ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
     pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
     pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
 else:
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
 
 print('Camera matrix:\n', mtx)
 print('Distortion coefficients:\n', dist)
@@ -247,7 +247,7 @@ if args.extended:
 
 if args.save:
     summary = input("Insert comments: ")
-    fs = cv2.FileStorage('./tests/res-'+args.folder+'.yml', cv2.FILE_STORAGE_WRITE)
+    fs = cv.FileStorage('./tests/res-'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
     fs.write('init_cam_calib', args.calibfile)
     fs.write('camera_matrix', mtx)
