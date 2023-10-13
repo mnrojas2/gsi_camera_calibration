@@ -19,7 +19,7 @@ parser.add_argument( '-e', '--extended', action='store_true', default=False, hel
 parser.add_argument( '-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml).')
-parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame(*.txt).')
+parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format as well as TARGET position data in .txt format.')
 
 ###############################################################################################################################
@@ -31,7 +31,7 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.waitKey(0)
     cv.destroyAllWindows()
         
-def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
+def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, fdir='./tests/fC51e/'):
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
@@ -53,7 +53,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
             if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
-        cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
+        cv.imwrite(f'{fdir}{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -339,12 +339,13 @@ for fname in images[start_frame:]:
     
     # If number of CODETARGETS is under 6, add TARGETS near the middle of the image to compensate
     if len(ct_corners_names) <= min_corners:
+        
         mid_pt = np.array([[w/2, h/2]])
         dist2mid_pt = (distance.cdist(df_corners[['X', 'Y']], mid_pt)).reshape(-1)
         
         mid_val = []
         for val in dist2mid_pt.argsort():
-            if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < 9-len(ct_corners_names):
+            if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < (min_corners+3)-len(ct_corners_names):
                 mid_val.append(df_corners.iloc[val].name)
         
         ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
@@ -360,7 +361,9 @@ for fname in images[start_frame:]:
     
     # Show or save frames with points
     if args.plot:
-        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
+        # displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
+        df_ct = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
+        displayImageWPoints(img0, df_ct, name=ffname, show_names=True)
 
     # Save 3D and 2D point data for calibration
     objpoints.append(new_obj3D)
