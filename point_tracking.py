@@ -44,7 +44,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
             keys = arg.index.to_list()
             values = arg.to_numpy().astype(int)
         else:
-            raise TypeError('Current points format is not allowed.')
+            raise TypeError('Argument format is not allowed.')
         clr = [128, 0, 128]
         if len(args) > 1:
             clr[1] += 128

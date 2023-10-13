@@ -16,12 +16,13 @@ from scipy.spatial import distance
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
-parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
-parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
+parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
+parser.add_argument( '-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
 parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
-parser.add_argument('-p', '--plots', action='store_true', default=False, help='Shows plots of every frame with image points and projected points.')
-parser.add_argument('-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
+parser.add_argument( '-p', '--plots', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
+parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml).')
+parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame(*.txt).')
 
 #############################################################################
 # Functions
@@ -44,7 +45,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
             keys = arg.index.to_list()
             values = arg.to_numpy().astype(int)
         else:
-            raise TypeError('Current points format is not allowed.')
+            raise TypeError('Argument format is not allowed.')
         clr = [128, 0, 128]
         if len(args) > 1:
             clr[1] += 128
@@ -95,6 +96,11 @@ def deleteFarPoints(dataframe, df_projected, limit=75):
     new_df_list = new_df.loc[new_df['dist'] >= limit]['index'].to_list()
     return dataframe.drop(new_df_list)
 
+
+#############################################################################
+# Main
+args = parser.parse_args()
+
 #############################################################################
 # GSI data import
 
@@ -123,25 +129,36 @@ ct_frame_dict = {
 		"CODE133": [1402, 957],
 		"CODE134": [1789, 960]
 	}
-start_frame = 0
-ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
-ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
-
-# Or load .txt file with some specific frame codetarget locations
-# with open('./tests/data_dict.txt') as json_file:
-#     frame_dict = json.load(json_file)
     
-# start_frame = int(frame_dict['last_passed_frame'][5:])
-# frame_dict.pop('last_passed_frame')
+if args.halfway:
+    # Or load .txt file with some specific frame codetarget locations
+    with open(f'./tests/{args.halfway}.txt') as json_file:
+        frame_dict = json.load(json_file)
+    
+    # Save starting point
+    start_frame = int(frame_dict['last_passed_frame'][5:])
+    frame_dict.pop('last_passed_frame')
+    
+    # Get point values
+    df_frame = pd.DataFrame.from_dict(frame_dict)
+    cframes = df_frame.to_numpy().reshape(-1,1,2)
 
-# df_frame = pd.DataFrame.from_dict(frame_dict)
-# cframes = df_frame.to_numpy().reshape(-1,1,2)
-
-# ct_idx = [df_frame.index.get_loc(idx) for idx in df_frame.index if 'CODE' in idx]
-# ct_names = [idx for idx in df_frame.index if 'CODE' in idx] # or idx in ['TARGET323', 'TARGET165']]
-
-# ct_frame = cframes[ct_idx]
-# ct_points_3D = obj_3D.loc[ct_names].to_numpy()
+    # Get CODETARGET locations in image
+    ct_idx = [df_frame.index.get_loc(idx) for idx in df_frame.index if 'CODE' in idx]
+    ct_names = [idx for idx in df_frame.index if 'CODE' in idx]
+    ct_frame = cframes[ct_idx]
+    
+    # Get CODETARGET locations in 3D
+    ct_points_3D = obj_3D.loc[ct_names].to_numpy()
+else:
+    # Use CODETARGET values from ct_frame_dict (image0)
+    start_frame = 0
+    
+    # Get CODETARGET locations in image
+    ct_frame = np.array(list(ct_frame_dict.values()), dtype=np.float64)
+    
+    # Get CODETARGET locations in 3D
+    ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
 
 #############################################################################
 # Crossmatch
@@ -173,8 +190,7 @@ k3 = -0.11974069
 dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
 ################################################################################
-# Main
-args = parser.parse_args()
+# Tracking initial process
 
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
@@ -205,8 +221,8 @@ imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
 ######################################################################################################################################
-# Image 0 name
-fname = images[start_frame] #[0]
+# Image name of starting point 
+fname = images[start_frame]
     
 # Read image
 img0 = cv.imread(fname)
@@ -214,12 +230,13 @@ ffname = fname[8+len(args.folder):-4]
 
 # Detect points in image
 img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
+h, w = img_gray.shape
 
 # Applying threshold to find points
 thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -128)
 
 # List position of every point found
-contours, hierarchy = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+contours, _ = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
 corners = []
 for c in contours:
     # calculate moments for each contour
@@ -237,7 +254,7 @@ for c in contours:
 corners = np.array(corners, dtype=np.float32)
 
 # Get distance between 2D projected points and 2D image points
-corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:]) # <-------- this is the function we need to update to find the correct points
+corners_matrix = distance.cdist(corners[:,0,:], points_2D[:,0,:])
 
 # Convert matrix array in dataframe with proper index and apply idxmin function to find the name of the closest point (obj_3D.index ~ points_2D)
 corners_dataframe = pd.DataFrame(data=corners_matrix, index=np.arange(0, len(corners), 1), columns=obj_3D.index.to_list())
@@ -246,7 +263,6 @@ corners_min = corners_dataframe.idxmin(axis='columns')
 # Delete duplicate points that were not in the GSI point list
 df_corners = pd.DataFrame(data=corners[:,0,:], index=corners_min.tolist(), columns=['X', 'Y'])
 df_corners = deleteDuplicatesPoints(df_corners, df_points_2D)
-
 df_cnp = df_corners.to_numpy(dtype=np.float32)
 
 # Produce datasets and add them to list
@@ -256,6 +272,19 @@ new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
 # Get position of CODETARGETS
 ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx]
 ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx]
+
+# If number of CODETARGETS is under 6, add TARGETS near the middle of the image to compensate
+if len(ct_corners_names) <= 6:
+    mid_pt = np.array([w/2, h/2])
+    dist2mid_pt = (distance.cdist(df_corners[['X', 'Y']], mid_pt.reshape(1,2))).reshape(-1)
+    
+    mid_val = []
+    for val in dist2mid_pt.argsort():
+        if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < 9-len(ct_corners_names):
+            mid_val.append(df_corners.iloc[val].name)
+    
+    ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
+    ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
 ct_corners = new_corners[ct_corners_idx]
 
 # Save 3D and 2D point data for calibration
@@ -265,6 +294,7 @@ ret_names.append(ffname)
 
 img_old = img_gray
 
+###########################################################################################################################
 # Rest of images
 pbar = tqdm(desc='READING FRAMES', total=len(images)-1, unit=' frames')
 if start_frame != 0:
@@ -276,6 +306,7 @@ for fname in images[start_frame+1:]:
     
     # Detect points in image
     img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
+    h, w = img_gray.shape
     
     # Applying threshold to find points
     thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -128)
@@ -314,7 +345,6 @@ for fname in images[start_frame+1:]:
     ct_corners_names = nn_ct_name
         
     # Find the correct position of points using a small window and getting the highest value closer to the center.
-    h, w = img_gray.shape
     ct_corners = []
     ct_names_fix = []
     for i in range(ct_corners_proy.shape[0]):
@@ -325,7 +355,7 @@ for fname in images[start_frame+1:]:
         y_min = 0 if int(cnr[0,1] - wd) <= 0 else int(cnr[0,1] - wd)
         y_max = h if int(cnr[0,1] + wd) >= h else int(cnr[0,1] + wd)
         
-        contours, hierarchy = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
         
         # Después del frame966 no hay más valores en el vector de codetargets
         if len(contours) > 1:
@@ -353,11 +383,6 @@ for fname in images[start_frame+1:]:
     # Find rest of points using CODETARGET projections
     
     if args.calibfile:
-        fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
-        camera_matrix = fs.getNode("camera_matrix").mat()
-        dist_coeff = fs.getNode("dist_coeff").mat()[:8]
-        print(f'Imported calibration parameters from /{args.calibfile}.yml/')
-
         # Get angle of camera by matching known 2D points with 3D points
         res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
         
@@ -371,7 +396,7 @@ for fname in images[start_frame+1:]:
     df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
     
     # List position of every point found
-    contours, hierarchy = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
     corners = []
     for c in contours:
         # calculate moments for each contour
@@ -408,14 +433,18 @@ for fname in images[start_frame+1:]:
     ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx]
     ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx]
     
-    # if number of CODETARGETS is under 6, add random targetpoints to compensate
+    # If number of CODETARGETS is under 6, add TARGETS near the middle of the image to compensate
     if len(ct_corners_names) <= 6:
-        c = 0
-        ###
-        ###
-        # ct_corners_idx += 
-        # ct_corners_names += 
-    
+        mid_pt = np.array([w/2, h/2])
+        dist2mid_pt = (distance.cdist(df_corners[['X', 'Y']], mid_pt.reshape(1,2))).reshape(-1)
+        
+        mid_val = []
+        for val in dist2mid_pt.argsort():
+            if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < 9-len(ct_corners_names):
+                mid_val.append(df_corners.iloc[val].name)
+        
+        ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
+        ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
     ct_corners = new_corners[ct_corners_idx]
     
     # Save CODETARGETS data in a .txt file in case it's necessary to restart halfway.
@@ -424,11 +453,13 @@ for fname in images[start_frame+1:]:
     with open(f'./tests/datadict.txt', 'w') as fp:
         json.dump(save_corners, fp, indent=4)
     
-    # displayImageWPoints(img0, new_corners, name=ffname, save=False)
-    displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
+    # Show or save frames with points
+    if args.plots:
+        # displayImageWPoints(img0, new_corners, name=ffname, save=False)
+        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
     
-    # df_ct_corn = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
-    # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_names=True, save=True)
+        # df_ct_corn = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
+        # displayImageWDataframe(img0, df_ct_corn, name=ffname, show_names=True, save=True)
 
     # Save 3D and 2D point data for calibration
     objpoints.append(new_obj3D)
@@ -443,5 +474,3 @@ pbar.close()
 cv.destroyAllWindows()
 
 print("We finished!")
-
-# Chequear en la primera parte si los puntos todavía conservan su posición respecto a los datos del obj3D. R: Lo están, pero el orden de los puntos cambió, no es problema ya que los ptos 3D también cambiaron
