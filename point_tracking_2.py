@@ -18,11 +18,10 @@ parser = argparse.ArgumentParser(description='Camera calibration using chessboar
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
 parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument( '-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
-parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
 parser.add_argument( '-p', '--plots', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
-parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml).')
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame(*.txt).')
+parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 
 #############################################################################
 # Functions
