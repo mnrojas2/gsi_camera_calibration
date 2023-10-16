@@ -139,6 +139,10 @@ dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 # Other parameters
 # Minimum number of CODETARGETS necessary for 3D reconstruction
 min_corners = 6
+mid_val = ['TARGET119', 'TARGET220', 'TARGET201', 'TARGET336', 'TARGET339', 
+           'TARGET274', 'TARGET283', 'TARGET316', 'TARGET297', 'TARGET111', 
+           'TARGET53', 'TARGET47', 'TARGET242', 'TARGET83', 'TARGET62']
+        
 
 ###############################################################################################################################
 # Main
@@ -258,7 +262,7 @@ for fname in images[start_frame:]:
             
             contours, _ = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             
-            if len(contours) > 1:
+            if len(contours) > 3 or (len(contours) > 1 and 'TARGET' in ct_corners_names[i]):
                 cntrs = []
                 for c in contours:
                     # Calculate moments for each contour
@@ -338,20 +342,20 @@ for fname in images[start_frame:]:
         mid_pt = np.array([[w/2, h/2]])
         dist2mid_pt = (distance.cdist(df_corners[['X', 'Y']], mid_pt)).reshape(-1)
         
-        mid_val = []
-        for val in dist2mid_pt.argsort():
-            if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < (min_corners+3)-len(ct_corners_names):
-                mid_val.append(df_corners.iloc[val].name)
+        # mid_val = []
+        # for val in dist2mid_pt.argsort():
+        #     if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < (min_corners+3)-len(ct_corners_names):
+        #         mid_val.append(df_corners.iloc[val].name)
         
         ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
         ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx or idx in mid_val]
     ct_corners = new_corners[ct_corners_idx]
     
-    # Save CODETARGETS data in a .txt file in case it's necessary to restart halfway.
+    # Save CODETARGETS data in a .txt file in case it's necessary to restart halfway through the process.
     if args.save:
         save_corners = df_corners.to_dict()
         save_corners['last_passed_frame'] = ffname
-        with open(f'./tests/points-data/datadict.txt', 'w') as fp:
+        with open(f'./tests/points-data/data{args.folder}.txt', 'w') as fp:
             json.dump(save_corners, fp, indent=4)
     
     # Show or save frames with points
