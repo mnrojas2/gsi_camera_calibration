@@ -22,6 +22,7 @@ parser.add_argument( '-p', '--plot', action='store_true', default=False, help='S
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml).')
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format as well as TARGET position data in .txt format.')
+parser.add_argument('-o', '--outf', type=str, metavar='out-folder', help='Name of the folder containing frames with their points (--save must be called).')
 
 ###############################################################################################################################
 # Functions
@@ -355,7 +356,7 @@ for fname in images[start_frame:]:
     
     # Show or save frames with points
     if args.plot:
-        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
+        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True, fdir=args.outf)
         # df_ct = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
         # displayImageWPoints(img0, df_ct, name=ffname, show_names=True)
 
