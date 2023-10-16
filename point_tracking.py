@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import cv2 as cv
 import numpy as np
 import pandas as pd
@@ -31,7 +32,10 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.waitKey(0)
     cv.destroyAllWindows()
         
-def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, fdir='./tests/fC51e/'):
+def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, fdir='new_set'):
+    # Create output folder if it wasn't created yet
+    if not os.path.exists('./tests/tracked-sets/'+fdir):
+        os.mkdir('./tests/tracked-sets/'+fdir)
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
@@ -53,7 +57,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
             if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
-        cv.imwrite(f'{fdir}{name}.jpg', img_copy)
+        cv.imwrite(f'./tests/tracked-sets/{fdir}/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -135,56 +139,6 @@ dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 # Minimum number of CODETARGETS necessary for 3D reconstruction
 min_corners = 6
 
-# Manually found (codetargets) for frame0.jpg (C50Finf) # C51Finf) 
-# C52Finf
-ct_frame_dict = {
-		"CODE25": [3800, 405],
-		"CODE29": [3793, 809],
-		"CODE30": [3252, 953],
-		"CODE32": [3340, 2117],
-		"CODE42": [3201, 66],
-		"CODE45": [3284, 1311],
-		"CODE46": [3232, 505],
-		"CODE133": [3142, 249],
-		"CODE134": [3171, 853]
-	}
-
-# C51Finf
-# ct_frame_dict = {
-#         "CODE25": [1581, 588],
-# 		"CODE26": [2635, 231],
-# 		"CODE29": [1816, 599],
-# 		"CODE30": [1860, 913],
-# 		"CODE31": [2091, 228],
-# 		"CODE32": [2614, 920],
-# 		"CODE36": [1302, 579],
-# 		"CODE38": [3078, 911],
-# 		"CODE42": [1293, 914],
-# 		"CODE43": [3105, 229],
-# 		"CODE45": [2089, 910],
-# 		"CODE46": [1574, 909],
-# 		"CODE133": [1402, 957],
-# 		"CODE134": [1789, 960]
-# }
-
-# C50Finf
-ct_frame_dict = {
-		"CODE25": [1139,  801],# [1581, 588],
-		"CODE26": [2433,  419],# [2635, 231],
-		"CODE29": [1440,  825],# [1816, 599],
-		"CODE30": [1492, 1222],# [1860, 913],
-		"CODE31": [1783,  385],# [2091, 228],
-		"CODE32": [2426, 1251],# [2614, 920],
-		"CODE36": [ 772,  777],# [1302, 579],
-		"CODE38": [2971, 1250],# [3078, 911],
-		"CODE42": [ 747, 1209],# [1293, 914],
-		"CODE43": [2971,  441],# [3105, 229],
-		"CODE45": [1780, 1225],# [2089, 910],
-		"CODE46": [1124, 1210],# [1574, 909],
-		"CODE133": [ 888, 1270],# [1402, 957],
-		"CODE134": [1398, 1283],# [1789, 960]
-	}
-
 ###############################################################################################################################
 # Main
 
@@ -192,8 +146,8 @@ ct_frame_dict = {
 args = parser.parse_args()
     
 if args.halfway:
-    # Or load .txt file with some specific frame codetarget locations
-    with open(f'./tests/{args.halfway}.txt') as json_file:
+    # Load .txt file with some specific frame codetarget locations
+    with open(f'./tests/points-data/{args.halfway}.txt') as json_file:
         frame_dict = json.load(json_file)
     
     # Save starting point
@@ -212,7 +166,12 @@ if args.halfway:
     # Get CODETARGET locations in 3D
     ct_points_3D = obj_3D.loc[ct_names].to_numpy()
 else:
+    # Load .txt file with some specific frame codetarget locations found manually (usually frame 0)
+    with open(f'./tests/points-data/pts-start.txt') as json_file:
+        frame_dict = json.load(json_file)
+    
     # Use CODETARGET values from ct_frame_dict (default=image0)
+    ct_frame_dict = frame_dict[args.folder]
     start_frame = 0
     
     # Get CODETARGET locations in image
@@ -224,7 +183,7 @@ else:
 ###############################################################################################################################
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
-    fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
+    fs = cv.FileStorage('./tests/results/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
     camera_matrix = fs.getNode("camera_matrix").mat()
     dist_coeff = fs.getNode("dist_coeff").mat()[:8]
     print(f'Imported calibration parameters from /{args.calibfile}.yml/')
@@ -391,7 +350,7 @@ for fname in images[start_frame:]:
     if args.save:
         save_corners = df_corners.to_dict()
         save_corners['last_passed_frame'] = ffname
-        with open(f'./tests/datadict.txt', 'w') as fp:
+        with open(f'./tests/points-data/datadict.txt', 'w') as fp:
             json.dump(save_corners, fp, indent=4)
     
     # Show or save frames with points

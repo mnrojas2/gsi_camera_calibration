@@ -107,7 +107,7 @@ POI = obj_3D.loc[['CODE45']].to_numpy()[0]
 points_3D -= POI
 
 # Import manually found points (codetargets) list
-points_dir = './tests/points_json.txt'
+points_dir = './tests/points-data/homography-py.txt'
 with open(points_dir) as json_file:
     codetargets = json.load(json_file)
 
