@@ -83,7 +83,7 @@ def deleteDuplicatesPoints(dataframe, df_projected):
     dataframe = deleteFarPoints(dataframe, df_projected)
     return dataframe
 
-def deleteFarPoints(dataframe, df_projected, limit=75):
+def deleteFarPoints(dataframe, df_projected, limit=60):
     # Checks distance between points in dataframe and df_projected and deletes those from dataframe that surpass a certain upper limit
     new_df = dataframe.reset_index()
     new_dfX = new_df["index"].map(df_projected["X"])
@@ -135,22 +135,54 @@ dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 # Minimum number of CODETARGETS necessary for 3D reconstruction
 min_corners = 6
 
-# Manually found (codetargets) for frame0.jpg (C51Finf)
+# Manually found (codetargets) for frame0.jpg (C50Finf) # C51Finf) 
+# C52Finf
 ct_frame_dict = {
-		"CODE25": [1581, 588],
-		"CODE26": [2635, 231],
-		"CODE29": [1816, 599],
-		"CODE30": [1860, 913],
-		"CODE31": [2091, 228],
-		"CODE32": [2614, 920],
-		"CODE36": [1302, 579],
-		"CODE38": [3078, 911],
-		"CODE42": [1293, 914],
-		"CODE43": [3105, 229],
-		"CODE45": [2089, 910],
-		"CODE46": [1574, 909],
-		"CODE133": [1402, 957],
-		"CODE134": [1789, 960]
+		"CODE25": [3800, 405],
+		"CODE29": [3793, 809],
+		"CODE30": [3252, 953],
+		"CODE32": [3340, 2117],
+		"CODE42": [3201, 66],
+		"CODE45": [3284, 1311],
+		"CODE46": [3232, 505],
+		"CODE133": [3142, 249],
+		"CODE134": [3171, 853]
+	}
+
+# C51Finf
+# ct_frame_dict = {
+#         "CODE25": [1581, 588],
+# 		"CODE26": [2635, 231],
+# 		"CODE29": [1816, 599],
+# 		"CODE30": [1860, 913],
+# 		"CODE31": [2091, 228],
+# 		"CODE32": [2614, 920],
+# 		"CODE36": [1302, 579],
+# 		"CODE38": [3078, 911],
+# 		"CODE42": [1293, 914],
+# 		"CODE43": [3105, 229],
+# 		"CODE45": [2089, 910],
+# 		"CODE46": [1574, 909],
+# 		"CODE133": [1402, 957],
+# 		"CODE134": [1789, 960]
+# }
+
+# C50Finf
+ct_frame_dict = {
+		"CODE25": [1139,  801],# [1581, 588],
+		"CODE26": [2433,  419],# [2635, 231],
+		"CODE29": [1440,  825],# [1816, 599],
+		"CODE30": [1492, 1222],# [1860, 913],
+		"CODE31": [1783,  385],# [2091, 228],
+		"CODE32": [2426, 1251],# [2614, 920],
+		"CODE36": [ 772,  777],# [1302, 579],
+		"CODE38": [2971, 1250],# [3078, 911],
+		"CODE42": [ 747, 1209],# [1293, 914],
+		"CODE43": [2971,  441],# [3105, 229],
+		"CODE45": [1780, 1225],# [2089, 910],
+		"CODE46": [1124, 1210],# [1574, 909],
+		"CODE133": [ 888, 1270],# [1402, 957],
+		"CODE134": [1398, 1283],# [1789, 960]
 	}
 
 ###############################################################################################################################
@@ -190,6 +222,14 @@ else:
     ct_points_3D = obj_3D.loc[ct_frame_dict.keys()].to_numpy()
 
 ###############################################################################################################################
+# Replace local camera calibration parameters from file (if enabled)
+if args.calibfile:
+    fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
+    camera_matrix = fs.getNode("camera_matrix").mat()
+    dist_coeff = fs.getNode("dist_coeff").mat()[:8]
+    print(f'Imported calibration parameters from /{args.calibfile}.yml/')
+
+###############################################################################################################################
 # Initial process
 
 # Get images from directory
@@ -217,17 +257,9 @@ for fname in images[start_frame:]:
     h, w = img_gray.shape
     
     # Applying threshold to find points
-    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -128)
+    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
     
-    if int(ffname[5:]) == start_frame:
-        # Replace local camera calibration parameters from file (if enabled)
-        if args.calibfile:
-            fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
-            camera_matrix = fs.getNode("camera_matrix").mat()
-            dist_coeff = fs.getNode("dist_coeff").mat()[:8]
-            print(f'Imported calibration parameters from /{args.calibfile}.yml/')
-    
-    elif int(ffname[5:]) != start_frame:
+    if int(ffname[5:]) != start_frame:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None)
         kp2, des2 = orb.detectAndCompute(img_gray,None)
@@ -238,6 +270,9 @@ for fname in images[start_frame:]:
         
         src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
         dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
+        
+        img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        # plt.imshow(img3),plt.show()
         
         # Find homography matrix and do perspective transform to ct_points
         M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
@@ -361,9 +396,9 @@ for fname in images[start_frame:]:
     
     # Show or save frames with points
     if args.plot:
-        # displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
-        df_ct = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
-        displayImageWPoints(img0, df_ct, name=ffname, show_names=True)
+        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True)
+        # df_ct = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
+        # displayImageWPoints(img0, df_ct, name=ffname, show_names=True)
 
     # Save 3D and 2D point data for calibration
     objpoints.append(new_obj3D)
