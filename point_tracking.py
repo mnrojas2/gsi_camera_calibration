@@ -49,9 +49,9 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
             values = arg.to_numpy().astype(int)
         else:
             raise TypeError('Argument format is not allowed.')
-        clr = [128, 0, 128]
+        clr = [255, 0, 0]
         if len(args) > 1:
-            clr[1] += 128
+            clr += [-128, 128, 128]
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
             cv.circle(img_copy, values[i], 4, clr, -1)
@@ -138,10 +138,10 @@ dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
 # Other parameters
 # Minimum number of CODETARGETS necessary for 3D reconstruction
-min_corners = 6
 mid_val = ['CODE31', 'CODE26', 'CODE43', 'CODE36', 'CODE25', 'CODE29', 'CODE42', 'CODE46', 'CODE30', 'CODE45', 'CODE32', 'CODE38', 'CODE133', 'CODE134',
             'TARGET119', 'TARGET220', 'TARGET111', 'TARGET201', 'TARGET242', 'TARGET83', 'TARGET62', 'TARGET53', 'TARGET156', 'TARGET47', 'TARGET336', 
-            'TARGET274', 'TARGET210', 'TARGET1', 'TARGET72', 'TARGET255', 'TARGET301', 'TARGET339', 'TARGET283', 'TARGET257', 'TARGET296', 'TARGET338']
+            'TARGET274', 'TARGET210', 'TARGET1', 'TARGET72', 'TARGET255', 'TARGET301', 'TARGET339', 'TARGET283', 'TARGET257', 'TARGET296', 'TARGET338', 
+            'CSB-045-1', 'CSB-045-2', 'CSB-045-3', 'CSB-045-4', 'CSB-045-5', 'CSB-045-6', 'CSB-045-7', 'CSB-045-8']
 
 ###############################################################################################################################
 # Main
@@ -163,8 +163,8 @@ if args.halfway:
     cframes = df_frame.to_numpy().reshape(-1,1,2)
 
     # Get CODETARGET locations in image
-    ct_idx = [df_frame.index.get_loc(idx) for idx in df_frame.index if 'CODE' in idx]
-    ct_names = [idx for idx in df_frame.index if 'CODE' in idx]
+    ct_idx = [df_frame.index.get_loc(idx) for idx in df_frame.index if idx in mid_val]
+    ct_names = [idx for idx in df_frame.index if idx in mid_val]
     ct_corners = cframes[ct_idx]
     
     # Get CODETARGET locations in 3D
@@ -331,21 +331,7 @@ for fname in images[start_frame:]:
     new_corners = df_cnp.reshape(-1,1,2)
     new_obj3D = obj_3D.loc[df_corners.index.to_list()].to_numpy(dtype=np.float32)
 
-    # Get position of CODETARGETS
-    # ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if 'CODE' in idx]
-    # ct_corners_names = [idx for idx in df_corners.index if 'CODE' in idx]
-    
-    # If number of CODETARGETS is under 6, add TARGETS to compensate
-    # if len(ct_corners_names) <= min_corners: # <----- cambiar método de descarte
-        
-    #     mid_pt = np.array([[w/2, h/2]])
-    #     dist2mid_pt = (distance.cdist(df_corners[['X', 'Y']], mid_pt)).reshape(-1)
-        
-        # mid_val = []
-        # for val in dist2mid_pt.argsort():
-        #     if 'CODE' not in df_corners.iloc[val].name and len(mid_val) < (min_corners+3)-len(ct_corners_names):
-        #         mid_val.append(df_corners.iloc[val].name)
-        
+    # Get position of CODETARGETS plus other important coordinates
     ct_corners_idx = [df_corners.index.get_loc(idx) for idx in df_corners.index if idx in mid_val]
     ct_corners_names = [idx for idx in df_corners.index if idx in mid_val]
     ct_corners = new_corners[ct_corners_idx]
@@ -360,8 +346,6 @@ for fname in images[start_frame:]:
     # Show or save frames with points
     if args.plot:
         displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True, fdir=args.outf)
-        # df_ct = pd.DataFrame(data=ct_corners[:,0,:], index=ct_corners_names, columns=['X', 'Y'])
-        # displayImageWPoints(img0, df_ct, name=ffname, show_names=True)
 
     # Save 3D and 2D point data for calibration
     objpoints.append(new_obj3D)
