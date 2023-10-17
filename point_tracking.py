@@ -143,6 +143,10 @@ mid_val = ['CODE31', 'CODE26', 'CODE43', 'CODE36', 'CODE25', 'CODE29', 'CODE42',
             'TARGET274', 'TARGET210', 'TARGET1', 'TARGET72', 'TARGET255', 'TARGET301', 'TARGET339', 'TARGET283', 'TARGET257', 'TARGET296', 'TARGET338', 
             'CSB-045-1', 'CSB-045-2', 'CSB-045-3', 'CSB-045-4', 'CSB-045-5', 'CSB-045-6', 'CSB-045-7', 'CSB-045-8']
 
+# Flags
+# CALIB_USE_INTRINSIC_GUESS: Calibration needs a preliminar camera_matrix to start (necessary in non-planar cases)
+flags_model = cv.CALIB_USE_INTRINSIC_GUESS
+
 ###############################################################################################################################
 # Main
 
@@ -222,7 +226,7 @@ for fname in images[start_frame:]:
     # Applying threshold to find points
     thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
     
-    if int(ffname[5:]) != start_frame:
+    if fname != images[0]:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None)
         kp2, des2 = orb.detectAndCompute(img_gray,None)
@@ -358,5 +362,35 @@ pbar.close()
 
 # When everything done, release the frames
 cv.destroyAllWindows()
+
+calib_enable=False
+# Camera Calibration
+if calib_enable:
+    print("Calculating camera matrix...")
+    if args.extended:
+        ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+        pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
+        pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
+    else:
+        ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+
+    print('Camera matrix:\n', mtx)
+    print('Distortion coefficients:\n', dist)
+    if args.extended:
+        print('Error per frame:\n', pVE_extended)
+
+    if args.save:
+        summary = input("Insert comments: ")
+        fs = cv.FileStorage('./tests/res-'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
+        fs.write('summary', summary)
+        fs.write('init_cam_calib', args.calibfile)
+        fs.write('camera_matrix', mtx)
+        fs.write('dist_coeff', dist)
+        if args.extended:
+            pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
+            fs.write('std_intrinsics', stdInt)
+            fs.write('std_extrinsics', stdExt)
+            fs.write('per_view_errors', pVElist)
+        fs.release()
 
 print("We finished!")
