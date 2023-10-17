@@ -364,6 +364,13 @@ pbar.close()
 cv.destroyAllWindows()
 
 calib_enable=False
+# reduction
+rd = 20
+rs = 0
+objpoints = objpoints[rs::rd]
+imgpoints = imgpoints[rs::rd]
+ret_names = ret_names[::rd]
+
 # Camera Calibration
 if calib_enable:
     print("Calculating camera matrix...")
@@ -381,7 +388,7 @@ if calib_enable:
 
     if args.save:
         summary = input("Insert comments: ")
-        fs = cv.FileStorage('./tests/res-'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
+        fs = cv.FileStorage('./tests/results/res-'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
         fs.write('summary', summary)
         fs.write('init_cam_calib', args.calibfile)
         fs.write('camera_matrix', mtx)
