@@ -23,6 +23,8 @@ parser.add_argument( '-o', '--outf', type=str, metavar='out-folder', help='Name 
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
 parser.add_argument( '-c', '--calibenable', action='store_true', default=False, help='Enables calibration process after finding all points from video.')
 parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
+parser.add_argument('-rd', '--reduction', type=int, metavar='N', default=1, help='Reduction of number of frames (total/N).')
+parser.add_argument('-rs', '--residue', type=int, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format as well as TARGET position data in .txt format.')
 
 
@@ -209,6 +211,7 @@ images = sorted(glob.glob(f'./sets/{args.folder}/*.jpg'), key=lambda x:[int(c) i
 objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
+vecs = []      # rotation and translation vectors from reconstruction
 
 ###############################################################################################################################
 # Image processing
@@ -357,14 +360,17 @@ for fname in images[start_frame:]:
     objpoints.append(new_obj3D)
     imgpoints.append(new_corners)
     ret_names.append(ffname)
+    vecs.append(np.array([rvec, tvec]))
 
     img_old = img_gray
     pbar.update(1)
 pbar.close()
 
 if args.save:
-    vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1]}
-    with open(f'./tests/points-data/{args.folder}_vidpoints.pkl', 'wb') as fp:
+    vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 
+                'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1],
+                'init_calibfile': args.calibfile, 'rt_vectors': vecs}
+    with open(f'./tests/points-data/tracked/{args.folder}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
         print(f"Dictionary saved successfully to file as './tests/points-data/{args.folder}_vidpoints.pkl'")
 
@@ -372,8 +378,8 @@ if args.save:
 cv.destroyAllWindows()
 
 # reduction
-rd = 20
-rs = 5
+rd = args.reduction
+rs = args.residue
 objpoints = objpoints[rs::rd]
 imgpoints = imgpoints[rs::rd]
 ret_names = ret_names[rs::rd]

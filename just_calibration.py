@@ -23,18 +23,24 @@ flags_model = cv.CALIB_USE_INTRINSIC_GUESS
 # Get parser arguments
 args = parser.parse_args()
 
+rd = args.reduction
+rs = args.residue
+
 # Load pickle file
 pFile = pickle.load(open(f"./tests/points-data/tracked/{args.file}.pkl","rb"))
 
-# reduction
-rd = args.reduction
-rs = args.residue
+# Assign lists
 objpoints = pFile['3D_points'][rs::rd]
 imgpoints = pFile['2D_points'][rs::rd]
 ret_names = pFile['name_points'][rs::rd]
+
 camera_matrix = pFile['init_mtx']
 dist_coeff = pFile['init_dist']
 img_shape = pFile['img_shape']
+
+calibfile = pFile['init_calibfile']
+rvec = np.array(pFile['rt_vectors'][0])
+tvec = np.array(pFile['rt_vectors'][1])
 
 # Camera Calibration
 print("Calculating camera parameters...")
