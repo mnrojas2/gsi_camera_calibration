@@ -17,6 +17,7 @@ def main():
     cc_summary = {}
     for calibfile in calibrationFiles:
         fs = cv.FileStorage(calibfile, cv.FILE_STORAGE_READ)
+        cb = calibfile.split("\\")[-1][:-4]
         mtx = fs.getNode("camera_matrix")
         dcff = fs.getNode("dist_coeff")
         
@@ -36,10 +37,10 @@ def main():
             k4 = dcff.mat().T[0,4]
             k5 = dcff.mat().T[0,5]
             k6 = dcff.mat().T[0,6]
-            cc_data[calibfile] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3, 'k4': k4, 'k5': k5, 'k6': k6}
+            cc_data[cb] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3, 'k4': k4, 'k5': k5, 'k6': k6}
         except:
-            cc_data[calibfile] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3}
-        cc_summary[calibfile] = {'summary': summary.string()}
+            cc_data[cb] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3}
+        cc_summary[cb] = {'summary': summary.string()}
 
     df_ccd = pd.DataFrame(cc_data).T
     df_ccd_dcb = df_ccd.describe()

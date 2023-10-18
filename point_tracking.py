@@ -373,14 +373,14 @@ cv.destroyAllWindows()
 
 # reduction
 rd = 20
-rs = 10
+rs = 5
 objpoints = objpoints[rs::rd]
 imgpoints = imgpoints[rs::rd]
 ret_names = ret_names[rs::rd]
 
 # Camera Calibration
 if args.calibenable:
-    print("Calculating camera matrix...")
+    print("Calculating camera parameters...")
     if args.extended:
         ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
         pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
