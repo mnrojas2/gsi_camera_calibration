@@ -9,6 +9,7 @@ import argparse
 import json
 import re
 import copy
+import pickle
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial import distance
@@ -16,13 +17,14 @@ from scipy.spatial import distance
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
-parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
-parser.add_argument( '-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')
+parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
-parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml).')
+parser.add_argument( '-o', '--outf', type=str, metavar='out-folder', help='Name of the folder containing frames with their points (--plot must also be called).')
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
+parser.add_argument( '-c', '--calibenable', action='store_true', default=False, help='Enables calibration process after finding all points from video.')
+parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format as well as TARGET position data in .txt format.')
-parser.add_argument('-o', '--outf', type=str, metavar='out-folder', help='Name of the folder containing frames with their points (--save must be called).')
+
 
 ###############################################################################################################################
 # Functions
@@ -360,19 +362,24 @@ for fname in images[start_frame:]:
     pbar.update(1)
 pbar.close()
 
+if args.save:
+    vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1]}
+    with open(f'./tests/points-data/{args.folder}_vidpoints.pkl', 'wb') as fp:
+        pickle.dump(vid_data, fp)
+        print(f"Dictionary saved successfully to file as './tests/points-data/{args.folder}_vidpoints.pkl'")
+
 # When everything done, release the frames
 cv.destroyAllWindows()
 
-calib_enable=False
 # reduction
 rd = 20
-rs = 0
+rs = 10
 objpoints = objpoints[rs::rd]
 imgpoints = imgpoints[rs::rd]
-ret_names = ret_names[::rd]
+ret_names = ret_names[rs::rd]
 
 # Camera Calibration
-if calib_enable:
+if args.calibenable:
     print("Calculating camera matrix...")
     if args.extended:
         ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
@@ -388,7 +395,7 @@ if calib_enable:
 
     if args.save:
         summary = input("Insert comments: ")
-        fs = cv.FileStorage('./tests/results/res-'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
+        fs = cv.FileStorage('./tests/results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
         fs.write('summary', summary)
         fs.write('init_cam_calib', args.calibfile)
         fs.write('camera_matrix', mtx)
