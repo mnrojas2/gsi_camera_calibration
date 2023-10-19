@@ -98,9 +98,9 @@ if args.extended:
 
 if args.save:
     summary = input("Insert comments: ")
-    fs = cv.FileStorage('./results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
+    fs = cv.FileStorage('./results/'+args.file[:-14]+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
-    fs.write('init_cam_calib', args.calibfile) # ???????????????????
+    fs.write('init_cam_calib', calibfile) # ???????????????????
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     if args.extended:

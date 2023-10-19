@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and 
 def main():
     args = parser.parse_args()
 
-    calibrationFiles = glob.glob('./tests/results/*.yml')
+    calibrationFiles = glob.glob('./results/*.yml')
 
     cc_data = {}
     cc_summary = {}
@@ -47,7 +47,7 @@ def main():
     df_ccd_2 = pd.concat([df_ccd, df_ccd_dcb])
     df_ccd_complete = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
 
-    df_ccd_complete.to_excel('./tests/results/camera_calibration_test.xlsx')
+    df_ccd_complete.to_excel('./results/camera_calibration_test.xlsx')
 
     fig, axis = plt.subplots(nrows=2, ncols=2)
     df_ccd['fx'].plot(ax=axis[0,0],kind="hist", title="fx")

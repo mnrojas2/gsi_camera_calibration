@@ -1,6 +1,6 @@
 %YAML:1.0
 ---
-summary: "Third calibration test for video C51Finf, using even another subset."
+summary: "Filter by time, rd=20, rs=5."
 init_cam_calib: C99-1010_3p_3
 camera_matrix: !!opencv-matrix
    rows: 3
