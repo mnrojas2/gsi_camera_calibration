@@ -136,7 +136,7 @@ def split_by_distance(objpts, imgpts, names, vecs, min_dist=150):
 
 # GSI data import
 # Import the 3D points from the csv file
-obj_3D = pd.read_csv('./videos/Coords/Bundle_fix.csv')[['X','Y','Z']]
+obj_3D = pd.read_csv('./datasets/coords/Bundle_fix.csv')[['X','Y','Z']]
 points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
 # Point of interest (center)
@@ -187,7 +187,7 @@ args = parser.parse_args()
     
 if args.halfway:
     # Load .txt file with some specific frame codetarget locations
-    with open(f'./tests/points-data/{args.halfway}.txt') as json_file:
+    with open(f'./datasets/points-data/{args.halfway}.txt') as json_file:
         frame_dict = json.load(json_file)
     
     # Save starting point
@@ -207,7 +207,7 @@ if args.halfway:
     ct_points_3D = obj_3D.loc[ct_names].to_numpy()
 else:
     # Load .txt file with some specific frame codetarget locations found manually (usually frame 0)
-    with open(f'./tests/points-data/pts-start.txt') as json_file:
+    with open(f'./datasets/points-data/pts-start.txt') as json_file:
         frame_dict = json.load(json_file)
     
     # Use CODETARGET values from ct_frame_dict (default=image0)
@@ -223,7 +223,7 @@ else:
 ###############################################################################################################################
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
-    fs = cv.FileStorage('./tests/results/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
+    fs = cv.FileStorage('./results/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
     camera_matrix = fs.getNode("camera_matrix").mat()
     dist_coeff = fs.getNode("dist_coeff").mat()[:8]
     print(f'Imported calibration parameters from /{args.calibfile}.yml/')
@@ -259,7 +259,7 @@ for fname in images[start_frame:]:
     # Applying threshold to find points
     thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
     
-    if fname != images[0]:
+    if fname != images[start_frame]:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None)
         kp2, des2 = orb.detectAndCompute(img_gray,None)
@@ -377,7 +377,7 @@ for fname in images[start_frame:]:
     if args.save:
         save_corners = df_corners.to_dict()
         save_corners['last_passed_frame'] = ffname
-        with open(f'./tests/points-data/data{args.folder}.txt', 'w') as fp:
+        with open(f'./datasets/points-data/data{args.folder}.txt', 'w') as fp:
             json.dump(save_corners, fp, indent=4)
     
     # Show or save frames with points
@@ -398,9 +398,9 @@ if args.save:
     vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 
                 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1],
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
-    with open(f'./tests/points-data/tracked/{args.folder}_vidpoints.pkl', 'wb') as fp:
+    with open(f'./datasets/pkl-files/{args.folder}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
-        print(f"Dictionary saved successfully to file as './tests/points-data/{args.folder}_vidpoints.pkl'")
+        print(f"Dictionary saved successfully as './datasets/pkl-files/{args.folder}_vidpoints.pkl'")
 
 # When everything done, release the frames
 cv.destroyAllWindows()
@@ -435,7 +435,7 @@ if args.calibenable:
 
     if args.calibsave:
         summary = input("Insert comments: ")
-        fs = cv.FileStorage('./tests/results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
+        fs = cv.FileStorage('./results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
         fs.write('summary', summary)
         fs.write('init_cam_calib', args.calibfile)
         fs.write('camera_matrix', mtx)

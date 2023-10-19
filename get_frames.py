@@ -9,7 +9,7 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description='Extracts frames from the specified video.')
 parser.add_argument('vidname', type=str, help='Name of video (mp4 format).')
 parser.add_argument('-in', '--folder', type=str, metavar='folder', dest='origin_folder', default='', help='Name of the folder/directory containing the video. Video or directory must be inside ./videos/ folder.')
-parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=10, help='Reduction of number of frames (total/N).')
+parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=1, help='Reduction of number of frames (total/N).')
 parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
 
 def main():

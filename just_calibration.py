@@ -55,7 +55,7 @@ args = parser.parse_args()
 
 # Load pickle file
 print(f'Loading {args.file}.pkl')
-pFile = pickle.load(open(f"./tests/points-data/tracked/{args.file}.pkl","rb"))
+pFile = pickle.load(open(f"./datasets/pkl-files/{args.file}.pkl","rb"))
 
 # Unpack lists
 objpoints = pFile['3D_points']
@@ -98,7 +98,7 @@ if args.extended:
 
 if args.save:
     summary = input("Insert comments: ")
-    fs = cv.FileStorage('./tests/results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
+    fs = cv.FileStorage('./results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
     fs.write('init_cam_calib', args.calibfile) # ???????????????????
     fs.write('camera_matrix', mtx)

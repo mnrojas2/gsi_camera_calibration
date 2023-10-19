@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Detects calibration target points from a set of images.')
-parser.add_argument('folder_location', type=str, help='Name of folder containing the frames.')
+parser.add_argument('folder', type=str, help='Name of folder containing the frames.')
 parser.add_argument('-th', '--threshold', type=int, metavar='N', default=128, choices=range(256), help='Value of threshold to generate binary image with all but target points filtered.')
 
 # Termination criteria
@@ -39,7 +39,7 @@ blobParams.minInertiaRatio = 0.01
 blobDetector = cv.SimpleBlobDetector_create(blobParams)
 
 # Import the 3D points from the csv file
-obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
+obj_3D = pd.read_csv('./datasets/coords/Bundle.csv')[['X','Y','Z']]
 
 # List of points
 obj_points = []
@@ -48,8 +48,8 @@ img_points = []
 # Main
 args = parser.parse_args()
 
-images = glob.glob(f'./sets/{args.folder_location}/*.jpg')
-print(f"Searching images in ./sets/{args.folder_location}/")
+images = glob.glob(f'./sets/{args.folder}/*.jpg')
+print(f"Searching images in ./sets/{args.folder}/")
 
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
 total_corners = np.zeros(2)
@@ -59,6 +59,7 @@ max_corners_frame = ''
 # Loading image
 for fname in images:
     img = cv.imread(fname, cv.IMREAD_COLOR)
+    ffname = fname[8+len(args.folder):-4]
     # define the alpha and beta
     alpha = 2.0 # Contrast control
     beta = -50.0 # Brightness control
@@ -88,7 +89,7 @@ for fname in images:
     
     # cv.imwrite(f'.\test{fname[7+len(folder_location):]}', img_adjusted)
     # cv.imwrite(f'.\test{fname[7+len(folder_location):-4]}_b.jpg', thr)
-    cv.imwrite(f'./test{fname[7+len(args.folder_location):-4]}_c.jpg', img_keypoints)
+    # cv.imwrite(f'./tests/{ffname}_c.jpg', img_keypoints)
     
     # cv.imshow("First frame", img_keypoints)
     # cv.waitKey(0)
@@ -106,12 +107,12 @@ total_corners = total_corners[2:].astype(int)
 total_corners = total_corners.reshape((int(len(total_corners)/2), 2))
 total_corners = np.unique(total_corners, axis=0)
 
-fs = cv.FileStorage('./results/pts_detection/points'+args.folder_location+'.yml', cv.FILE_STORAGE_WRITE)
+fs = cv.FileStorage('./results/pts_detection/points'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
 fs.write('corners', total_corners)
 fs.release()
 
 img = cv.imread(max_corners_frame, cv.IMREAD_COLOR)
 for corner in total_corners:
     cv.circle(img, (corner[0], corner[1]), 5, (0, 0, 255), -1)
-cv.imwrite(f'./results/pts_detection/frame{args.folder_location}.jpg', img)
+cv.imwrite(f'./results/pts_detection/frame{args.folder}.jpg', img)
 print(f'Frame with most points is {max_corners_frame} with {max_corners_found} found.')

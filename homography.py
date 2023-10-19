@@ -54,7 +54,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
             if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
-        cv.imwrite(f'./tests/fC51e/{name}.jpg', img_copy)
+        cv.imwrite(f'./tests/tracked-sets/fC51e/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -99,17 +99,12 @@ def deleteFarPoints(dataframe, df_projected, limit=75):
 # GSI data import
 
 # Import the 3D points from the csv file
-obj_3D = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
+obj_3D = pd.read_csv('./datasets/coords/Bundle.csv')[['X','Y','Z']]
 points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
 # Point of interest (center)
 POI = obj_3D.loc[['CODE45']].to_numpy()[0]
 points_3D -= POI
-
-# Import manually found points (codetargets) list
-points_dir = './tests/points-data/homography-py.txt'
-with open(points_dir) as json_file:
-    codetargets = json.load(json_file)
 
 #############################################################################
 # Camera intrinsic parameters for calibration
@@ -148,7 +143,7 @@ if args.extended:
 
 # Replace local camera calibration parameters from file (if enabled)
 if args.calibfile:
-    fs = cv.FileStorage('./tests/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
+    fs = cv.FileStorage('./results/'+args.calibfile+'.yml', cv.FILE_STORAGE_READ)
     camera_matrix = fs.getNode("camera_matrix").mat()
     dist_coeff = fs.getNode("dist_coeff").mat()[:8]
     print(f'Imported calibration parameters from /{args.calibfile}.yml/')
@@ -157,10 +152,15 @@ if args.calibfile:
 if args.k456:
     flags_model |= cv.CALIB_RATIONAL_MODEL
     print(f'CALIB_RATIONAL_MODEL flag set')
+    
+# Import manually found points (codetargets) list
+points_dir = f'./datasets/points-data/{args.folder}_data.txt'
+with open(points_dir) as json_file:
+    codetargets = json.load(json_file)
 
 # Get images from directory
-print(f"Searching images in ./tests/{args.folder}/")
-images = sorted(glob.glob(f'./tests/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+print(f"Searching images in ./sets/{args.folder}/")
+images = sorted(glob.glob(f'./sets/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
 # Arrays to store object points and image points from all frames possible.
 objpoints = [] # 3d points in real world space
@@ -171,7 +171,7 @@ pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
 for fname in images:
     # Read image
     img0 = cv.imread(fname)
-    ffname = fname[8+len(args.folder)+1:-4]
+    ffname = fname[8+len(args.folder):-4]
     
     # Get list of codetargets from manually found point list
     ct_frame_dict = codetargets[ffname]
@@ -263,7 +263,7 @@ if args.extended:
 
 if args.save:
     summary = input("Insert comments: ")
-    fs = cv.FileStorage('./tests/res-'+args.folder+'.yml', cv.FILE_STORAGE_WRITE)
+    fs = cv.FileStorage('./results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
     fs.write('init_cam_calib', args.calibfile)
     fs.write('camera_matrix', mtx)

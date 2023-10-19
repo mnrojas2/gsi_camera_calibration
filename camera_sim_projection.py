@@ -34,7 +34,7 @@ def plot_vectors(**kwargs):
     try:
         # Issue: projected points look mirrored but that's normal. Solution: fixed by inverting the value of Y axis (images goes top to bottom, while graph goes bottom to top)
         pts2D = kwargs.get('p2D')
-        ax2.scatter(pts2D[:,0,0], -pts2D[:,0,1])
+        ax2.scatter(-pts2D[:,0,0], pts2D[:,0,1])
     except:
         print("2D data can't be plotted")
 
@@ -53,7 +53,7 @@ def main():
     # Choose between GSI data or random data for 3D points
     if args.real_data:
         # Read .csv and save it as a dataframe
-        gpsArr = pd.read_csv('./videos/Coords/Bundle.csv')[['X','Y','Z']]
+        gpsArr = pd.read_csv('./datasets/coords/Bundle_fix.csv')[['X','Y','Z']]
         
         # Point of interest
         POI = gpsArr.loc[['CODE45']].to_numpy()[0] # all
