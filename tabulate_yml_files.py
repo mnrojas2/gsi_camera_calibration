@@ -44,6 +44,7 @@ def main():
 
     df_ccd = pd.DataFrame(cc_data).T
     df_ccd_dcb = df_ccd.describe()
+    df_ccd_dcb.loc['std/mean'] = df_ccd_dcb.loc['std'] / df_ccd_dcb.loc['mean']
     df_ccd_2 = pd.concat([df_ccd, df_ccd_dcb])
     df_ccd_complete = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
 
