@@ -43,8 +43,8 @@ def split_by_points(objp, imgp, t_split, shift):
             sft_end = len(op)
 
         # Add the new reduced lists to the major one
-        nobj.append(op[sft_start:sft_end])
-        nimg.append(ip[sft_start:sft_end])
+        nobj.append(np.array(op[sft_start:sft_end]))
+        nimg.append(np.array(ip[sft_start:sft_end]))
     return nobj, nimg
 
 def split_by_distance(objpts, imgpts, names, vecs, min_dist=150):
@@ -99,6 +99,10 @@ calibfile = pFile['init_calibfile']
 vecs = pFile['rt_vectors']
 
 # Filter lists if required
+if args.filterpnts:
+    print(f'Filter by points enabled')
+    objpoints, imgpoints = split_by_points(objpoints, imgpoints, t_split=args.split, shift=args.shift)
+
 if args.filterdist:
     print(f'Filter by distance enabled')
     objpoints, imgpoints, ret_names = split_by_distance(objpoints, imgpoints, ret_names, vecs, args.mindist)
@@ -108,10 +112,6 @@ if args.filtertime:
     objpoints = objpoints[args.residue::args.reduction]
     imgpoints = imgpoints[args.residue::args.reduction]
     ret_names = ret_names[args.residue::args.reduction]
-
-if args.filterpnts:
-    print(f'Filter by points enabled')
-    objpoints, imgpoints = split_by_points(objpoints, imgpoints, t_split=args.split, shift=args.shift)
     
 print(f'Length of lists for calibration: {len(ret_names)}')
 
