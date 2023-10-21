@@ -133,7 +133,7 @@ if args.save:
     summary = input("Insert comments: ")
     fs = cv.FileStorage('./results/'+args.file[:-14]+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
-    fs.write('init_cam_calib', calibfile) # ???????????????????
+    fs.write('init_cam_calib', calibfile)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     if args.extended:
