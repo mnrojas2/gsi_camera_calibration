@@ -18,7 +18,7 @@ parser.add_argument('-rs', '--residue', type=int, metavar='N', default=0, help='
 ###############################################################################################################################
 # Functions
 
-def split_by_distance(objpts, imgpts, names, vecs, min_dist=150):
+def split_by_distance(objpts, imgpts, names, vecs, min_dist):
     # Get distance of the camera between frames using rvec and tvec and return the lists of frames with a difference over "min_dist".
     arg_split = []
     for i in range(len(vecs)):
