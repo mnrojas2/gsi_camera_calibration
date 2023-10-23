@@ -13,8 +13,9 @@ parser.add_argument('file', type=str, help='Name of the file containing data (*p
 parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 parser.add_argument('-fd', '--filterdist', action='store_true', default=False, help='Enables filter by distance of camera position.')
-parser.add_argument('-ft', '--filtertime', action='store_true', default=False, help='Enables filter by time between frames.')
 parser.add_argument('-md', '--mindist', type=float, metavar='N', default=0.0, help='Minimum distance between cameras (available only when --filterdist is active).')
+parser.add_argument('-ds', '--distshift', type=float, metavar='N', default=0.0, help='Initial shift in distance between cameras (available only when --filterdist is active).')
+parser.add_argument('-ft', '--filtertime', action='store_true', default=False, help='Enables filter by time between frames.')
 parser.add_argument('-rd', '--reduction', type=int, metavar='N', default=1, help='Reduction of number of frames (total/N) (available only when --filtertime is active).')
 parser.add_argument('-rs', '--residue', type=int, metavar='N', default=0, help='Residue or offset for the reduced number of frames (available only when --filtertime is active).')
 parser.add_argument('-fp', '--filterpnts', action='store_true', default=False, help='Enables filter by randomly selecting points on each frame.')
@@ -49,9 +50,10 @@ def split_by_points(objp, imgp, t_split, shift):
         nimg.append(np.array(ip[sft_start:sft_end]))
     return nobj, nimg
 
-def split_by_distance(objpts, imgpts, names, vecs, min_dist):
+def split_by_distance(objpts, imgpts, names, vecs, min_dist, dist_shift):
     # Get distance of the camera between frames using rvec and tvec and return the lists of frames with a difference over "min_dist".
     arg_split = []
+    init_shift = False
     for i in range(len(vecs)):
         rvec = vecs[i][0]
         tvec = vecs[i][1]
@@ -62,7 +64,8 @@ def split_by_distance(objpts, imgpts, names, vecs, min_dist):
             arg_split.append(i)
         else:
             dtc = np.linalg.norm(tmat_old - tmat)
-            if dtc >= min_dist:
+            if dtc >= min_dist or (dtc >= dist_shift and not init_shift):
+                init_shift = True
                 tmat_old = tmat
                 arg_split.append(i)
     
@@ -107,7 +110,7 @@ if args.filterpnts:
 
 if args.filterdist:
     print(f'Filter by distance enabled')
-    objpoints, imgpoints, ret_names = split_by_distance(objpoints, imgpoints, ret_names, vecs, args.mindist)
+    objpoints, imgpoints, ret_names = split_by_distance(objpoints, imgpoints, ret_names, vecs, min_dist=args.mindist, dist_shift=args.distshift)
     
 if args.filtertime:
     print(f'Filter by time enabled')

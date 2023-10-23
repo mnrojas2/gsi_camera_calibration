@@ -1,6 +1,6 @@
 %YAML:1.0
 ---
-summary: "Filter by distance, md=200."
+summary: "Filter by distance, md=200, ds=0."
 init_cam_calib: C99-1010_3p_3
 camera_matrix: !!opencv-matrix
    rows: 3
