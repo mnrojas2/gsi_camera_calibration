@@ -1,7 +1,7 @@
 %YAML:1.0
 ---
-summary: "First calibration test for video C50Finf."
-init_cam_calib: res-C99Finf1010_3p_3
+summary: "Filter by time, rd=20, rs=0."
+init_cam_calib: C99-1010_3p_3
 camera_matrix: !!opencv-matrix
    rows: 3
    cols: 3

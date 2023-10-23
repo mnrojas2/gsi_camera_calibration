@@ -1,6 +1,9 @@
+#!/usr/bin/env python
+
 import cv2 as cv
 import argparse
 import glob
+import re
 import pandas as pd
 from matplotlib import pyplot as plt
 
@@ -11,8 +14,8 @@ parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and 
 def main():
     args = parser.parse_args()
 
-    calibrationFiles = glob.glob('./results/*.yml')
-
+    calibrationFiles = sorted(glob.glob('./results/*.yml'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    
     cc_data = {}
     cc_summary = {}
     for calibfile in calibrationFiles:
