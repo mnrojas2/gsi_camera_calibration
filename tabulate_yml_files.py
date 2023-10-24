@@ -16,10 +16,9 @@ def gaus(X,C,X_mean,sigma):
     # Calculate the Gaussian PDF values given Gaussian parameters and random variable X
     return C*np.exp(-(X-X_mean)**2/(2*sigma**2))
 
-def df_histogram(dataframe, colname, *args):
-    for arg in args:
-        idx_filt = arg[0]
-        idx_type = arg[1]
+def df_histogram(dataframe, colname, idx_tuple, gauss_c=False):
+    idx_filt = idx_tuple[0]
+    idx_type = idx_tuple[1]
     
     # Find rows if a particular str appears in summary or index
     if idx_type == 'index':
@@ -30,35 +29,40 @@ def df_histogram(dataframe, colname, *args):
     # Filter the original dataframe and calculate mean and std
     new_df = dataframe[df_idx][colname]
     new_df_ds = new_df.describe()
+    new_df_ds.loc['std/mean'] = new_df_ds.loc['std']/new_df_ds.loc['mean']
     print(new_df, '\n', new_df_ds)
     
     # Generate histogram
     x_data = new_df.to_numpy(dtype='float32')
-    hist, bin_edges = np.histogram(x_data)
-    y_hist = hist/sum(hist)
-
-    n = len(y_hist)
-    x_hist = np.zeros((n),dtype=float) 
-    for ii in range(n):
-        x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
-
-    mean = sum(x_hist*y_hist)/sum(y_hist)                  
-    sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist) 
-
-    # Gaussian least-square fitting process
-    param_optimised,param_covariance_matrix = curve_fit(gaus,x_hist,y_hist,p0=[max(y_hist),mean,sigma],maxfev=5000)
-
-    # Plotting gaussian curve
-    fig = plt.figure()
-    x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),500)
-    plt.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit')
     
-    weights = np.ones_like(x_data) / len(x_data)
-    plt.hist(x_data, weights=weights)
-    
-    plt.xlabel('Pixels')
-    plt.ylabel("Probability")
-    plt.title(f"Histogram for '{colname}' in '{idx_filt[:-1]}'")
+    # fig = plt.figure()
+    fig, axs = plt.subplots(x_data.shape[1])
+    for i in range(x_data.shape[1]):
+        hist, bin_edges = np.histogram(x_data[:,i])
+        y_hist = hist/sum(hist)
+        
+        n = len(y_hist)
+        x_hist = np.zeros((n),dtype=float) 
+        for ii in range(n):
+            x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
+
+        mean = sum(x_hist*y_hist)/sum(y_hist)                  
+        sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist) 
+
+        # Gaussian least-square fitting process
+        if gauss_c:
+            param_optimised, _ = curve_fit(gaus,x_hist,y_hist,p0=[max(y_hist),mean,sigma],maxfev=5000)
+            
+            # Plotting gaussian curve
+            x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),500)
+            axs[i].plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit')
+        
+        weights = np.ones_like(x_data[:,i]) / len(x_data[:,i])
+        axs[i].hist(x_data[:,i], weights=weights)
+        
+        axs[i].set_xlabel('Pixels')
+        axs[i].set_ylabel("Probability")
+        axs[i].set_title(f"'{idx_filt[:-1]}' - '{colname[i]}'")
 
 # Main
 def main():
@@ -100,20 +104,8 @@ def main():
     df_ccd_dcb.loc['std/mean'] = df_ccd_dcb.loc['std'] / df_ccd_dcb.loc['mean']
     df_ccd_2 = pd.concat([df_ccd, df_ccd_dcb])
     df_ccd_c = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
-
-    # df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
     
-    # print(df_ccd_complete[df_ccd_complete.summary.str.contains("distance,", na=False)])
-    df_histogram(df_ccd_c, 'fx', ('C', 'index'))
-    df_histogram(df_ccd_c, 'fy', ('C', 'index'))
-    df_histogram(df_ccd_c, 'cx', ('C', 'index'))
-    df_histogram(df_ccd_c, 'cy', ('C', 'index'))
-    plt.show()
-    
-    df_histogram(df_ccd_c, 'fx', ('Filter by time and points,', 'summary'))
-    df_histogram(df_ccd_c, 'fy', ('Filter by time and points,', 'summary'))
-    df_histogram(df_ccd_c, 'cx', ('Filter by time and points,', 'summary'))
-    df_histogram(df_ccd_c, 'cy', ('Filter by time and points,', 'summary'))
+    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time,', 'summary'), gauss_c=True)
     plt.show()
     
     #Por video, mismo tipo de error, al menos 3 casos
@@ -121,11 +113,7 @@ def main():
     #Por tiempo, mismo video, todos los casos
     #Por tiempo y puntos, mismo video, todos los casos.
     
-    # fig, axis = plt.subplots(nrows=2, ncols=2)
-    # df_ccd['fx'].plot(ax=axis[0,0],kind="hist", title="fx")
-    # df_ccd['fy'].plot(ax=axis[0,1],kind="hist", title="fy")
-    # df_ccd['cx'].plot(ax=axis[1,0],kind="hist", title="cx")
-    # df_ccd['cy'].plot(ax=axis[1,1],kind="hist", title="cy")
+    # df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
 
     # with pd.ExcelWriter('results/camera_calibration.xlsx') as writer:  
     #     df_mtx.to_excel(writer, sheet_name='Calibration Matrix')
