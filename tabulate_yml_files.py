@@ -11,8 +11,8 @@ from matplotlib import gridspec
 from scipy.optimize import curve_fit
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and creates a .xlsx with tabulated data.')
-parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Saves data to Excel file.')
+parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and generates histograms and exports data to Excel.')
+parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Exports data to .xlsx file.')
 
 
 def gaus(X,C,X_mean,sigma):
@@ -121,10 +121,7 @@ def main():
     df_ccd_2 = pd.concat([df_ccd, df_ccd_dcb])
     df_ccd_c = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
     
-    # df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time,', 'summary'), ('C42-', 'index'), gauss_c=False)
-    df_histogram(df_ccd_c, ['k1', 'k2', 'p1', 'p2', 'k3'], ('Filter by distance, md=200,', 'summary'), ('C42-', 'index'))
-    # df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time and points,', 'summary'), gauss_c=True)
-    # df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('C67-', 'index'), gauss_c=False)
+    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True)
     plt.show()
     
     #Por video, mismo tipo de error, al menos 3 casos
