@@ -12,6 +12,8 @@ from scipy.optimize import curve_fit
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and creates a .xlsx with tabulated data.')
+parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Saves data to Excel file.')
+
 
 def gaus(X,C,X_mean,sigma):
     # Calculate the Gaussian PDF values given Gaussian parameters and random variable X
@@ -39,7 +41,7 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
     new_dfs = dataframe[df_idx_s]['summary']
     new_df_ds = new_df.describe()
     new_df_ds.loc['std/mean'] = new_df_ds.loc['std']/new_df_ds.loc['mean']
-    print(pd.concat([pd.concat([new_df, new_dfs], axis=1), new_df_ds]))
+    print(pd.concat([pd.concat([new_df, new_dfs], axis=1), new_df_ds]).to_string())
     
     # Convert dataframe to numpy array
     x_data = new_df.to_numpy(dtype='float32')
@@ -119,10 +121,10 @@ def main():
     df_ccd_2 = pd.concat([df_ccd, df_ccd_dcb])
     df_ccd_c = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
     
-    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time,', 'summary'), ('C42-', 'index'), gauss_c=False)
-    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by distance,', 'summary'), ('C51-', 'index'))
-    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time and points,', 'summary'), gauss_c=True)
-    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('C67-', 'index'), gauss_c=False)
+    # df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time,', 'summary'), ('C42-', 'index'), gauss_c=False)
+    df_histogram(df_ccd_c, ['k1', 'k2', 'p1', 'p2', 'k3'], ('Filter by distance, md=200,', 'summary'), ('C42-', 'index'))
+    # df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('Filter by time and points,', 'summary'), gauss_c=True)
+    # df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy'], ('C67-', 'index'), gauss_c=False)
     plt.show()
     
     #Por video, mismo tipo de error, al menos 3 casos
@@ -130,7 +132,8 @@ def main():
     #Por tiempo, mismo video, todos los casos
     #Por tiempo y puntos, mismo video, todos los casos.
     
-    # df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
+    if args.excel:
+        df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
 
     # with pd.ExcelWriter('results/camera_calibration.xlsx') as writer:  
     #     df_mtx.to_excel(writer, sheet_name='Calibration Matrix')
