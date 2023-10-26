@@ -8,7 +8,15 @@ import cv2 as cv
 import pickle
 import copy
 from scipy.spatial.transform import Rotation as R 
+from matplotlib import pyplot as plt
 
+# Initialize parser
+parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser.add_argument('file', type=str, help='Name of the file containing data (*pkl).')
+parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
+
+
+# Functions
 def displayImage(img, width=1280, height=720, name='Picture'):
     # Small simple function to display images without needing to add the auxiliar functions. By default it reduces the size of the image to 1280x720.
     cv.imshow(name, cv.resize(img, (width, height)))
@@ -44,10 +52,6 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
     else:
         displayImage(img_copy, name=name)
 
-# Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
-parser.add_argument('file', type=str, help='Name of the file containing data (*pkl).')
-
 ###############################################################################################################################
 # Main
 
@@ -55,8 +59,8 @@ parser.add_argument('file', type=str, help='Name of the file containing data (*p
 args = parser.parse_args()
 
 # Load pickle file
-print(f'Loading {args.file}.pkl')
-pFile = pickle.load(open(f"./datasets/pkl-files/{args.file}.pkl","rb"))
+print(f'Loading {args.file}Finf_vidpoints.pkl')
+pFile = pickle.load(open(f"./datasets/pkl-files/{args.file}Finf_vidpoints.pkl","rb"))
 
 # Unpack lists
 objpoints = pFile['3D_points']
@@ -71,20 +75,61 @@ img_shape = pFile['img_shape']
 calibfile = pFile['init_calibfile']
 vecs = pFile['rt_vectors']
 
-tgt0 = 1250
-tgt1 = 570
+vel_list = []
+for i in range(len(imgpoints)):
+    if i == 0:
+        tgt_old = pd.DataFrame(data=imgpoints[i].reshape(-1, 2), index=tgt_names[i], columns=['X', 'Y'])
+        # img0 = cv.imread(f'./sets/{args.file[:-10]}/{ret_names[i]}.jpg')
+        # displayImageWPoints(img0, tgt_old, name=ret_names[i], show_names=True)
+    
+    elif i != 0:
+        tgt = pd.DataFrame(data=imgpoints[i].reshape(-1, 2), index=tgt_names[i], columns=['X', 'Y'])
+        tgt_common = (tgt.index.intersection(tgt_old.index)).tolist()
+        # displayImageWPoints(img1, tg1.loc[tgt_common], name=ret_names[i], show_names=True)
 
-tg0 = pd.DataFrame(data=imgpoints[tgt0].reshape(-1, 2), index=tgt_names[tgt0], columns=['X', 'Y'])
-img0 = cv.imread(f'./sets/{args.file[:-10]}/{ret_names[tgt0]}.jpg')
-# displayImageWPoints(img0, tg0, name=ret_names[tgt0], show_names=True)
+        new_tgt = np.linalg.norm(tgt.loc[tgt_common] - tgt_old.loc[tgt_common], axis=1)
+        df_tgt = pd.DataFrame(data=new_tgt, index=tgt_common, columns=['dist'])
+        vel_ang = (29.97 * df_tgt.mean()).to_numpy()
+        vel_list.append(vel_ang)
+        
+        tgt_old = tgt
 
-tg1 = pd.DataFrame(data=imgpoints[tgt1].reshape(-1, 2), index=tgt_names[tgt1], columns=['X', 'Y'])
-img1 = cv.imread(f'./sets/{args.file[:-10]}/{ret_names[tgt1]}.jpg')
-displayImageWPoints(img1, tg1, name=ret_names[tgt1], show_names=True)
+df_vel = pd.DataFrame(data=vel_list, index=ret_names[1:], columns=['vel_ang'])
 
-tgt_common = (tg0.index.intersection(tg1.index)).tolist()
-# displayImageWPoints(img0, tg0.loc[tgt_common], name=ret_names[tgt0], show_names=True)
-displayImageWPoints(img1, tg1.loc[tgt_common], name=ret_names[tgt1], show_names=True)
+print(f'Loading {args.file}-{args.calibfile}.yml')
+fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
+pve = fs.getNode("per_view_errors").mat()
+pve_keys = ['frame'+str(int(pve[i,0])) for i in range(pve.shape[0])]
+df_pve = pd.DataFrame(data=pve[:,1], index=pve_keys, columns=['RMSE'])
+
+vel_pve = (df_vel.index.intersection(df_pve.index)).tolist()
+
+# plt.figure()
+# plt.plot(df_vel.loc[vel_pve].to_numpy())
+
+# plt.figure()
+# plt.plot(df_pve.loc[vel_pve].to_numpy())
+
+# plt.show()
+
+fig, ax1 = plt.subplots()
+
+color = 'tab:red'
+ax1.set_xlabel('frame (i)')
+ax1.set_ylabel('RMS Error amplitude (?)')
+ax1.plot(pve[:,0], df_pve.loc[vel_pve].to_numpy(), color=color)
+ax1.tick_params(axis='y', labelcolor=color)
+
+color = 'tab:blue'
+ax2 = ax1.twinx()
+ax2.set_xlabel('frame (i)')
+ax2.set_ylabel('Angular velocity (pixels/s)')
+ax2.plot(pve[:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
+ax2.tick_params(axis='y', labelcolor=color)
+
+fig.tight_layout()
+plt.title('Angular Velocity vs RMS Error')
+plt.show()
 
 # what's left
 ## get the distance between both points
