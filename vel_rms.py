@@ -37,9 +37,9 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
             values = arg.to_numpy().astype(int)
         else:
             raise TypeError('Argument format is not allowed.')
-        clr = [255, 0, 0]
+        clr = np.array([255, 0, 0])
         if len(args) > 1:
-            clr += [-128, 128, 128]
+            clr += np.array([-128, 128, 128])
             clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
             cv.circle(img_copy, values[i], 4, clr, -1)
@@ -96,13 +96,52 @@ for i in range(len(imgpoints)):
 
 df_vel = pd.DataFrame(data=vel_list, index=ret_names[1:], columns=['vel_ang'])
 
+#############################################################################################
+
 print(f'Loading {args.file}-{args.calibfile}.yml')
 fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
+
+mtx = fs.getNode("camera_matrix").mat()
+dist_coeff = fs.getNode("dist_coeff").mat()
+rvecs = fs.getNode("rvec").mat()
+tvecs = fs.getNode("tvec").mat()
 pve = fs.getNode("per_view_errors").mat()
+
 pve_keys = ['frame'+str(int(pve[i,0])) for i in range(pve.shape[0])]
 df_pve = pd.DataFrame(data=pve[:,1], index=pve_keys, columns=['RMSE'])
 
 vel_pve = (df_vel.index.intersection(df_pve.index)).tolist()
+
+
+print(pve_keys[0], ret_names[0])
+
+rms_error = []
+j = 0
+for i in range(len(imgpoints)):
+    ffname = ret_names[i]
+    proy_points_2D = cv.projectPoints(objpoints[i], rvecs[j], tvecs[j], camera_matrix, dist_coeff)[0]
+    real_points_2D = imgpoints[i]
+
+    dist_pts2D = np.linalg.norm(proy_points_2D.reshape(-1,2) - real_points_2D.reshape(-1,2), axis=1)
+    mean_pts2D = np.mean(dist_pts2D)
+    rms_error.append(mean_pts2D)
+    
+df_rms = pd.DataFrame(data=np.array(rms_error), index=ret_names, columns=['Error'])
+
+print(df_rms.head())
+
+# Corregir:
+# - Hacer dataframe con todos los datos del pkl.
+# - Hacer intersección entre la lista de pve_keys y el dataframe creado para solo tener los frames que se utilizaron en la calibración
+# - Luego obtener df_rms y plotear con df_vel
+    
+    
+
+    # print(mean_pts2D)
+    # print([pve[i,1] for i in range(pve.shape[0]) if 'frame'+str(int(pve[i,0])) == ffname][0])
+
+# img0 = cv.imread(f'./sets/{args.file}Finf/{ret_names[rp0]}.jpg')
+# displayImageWPoints(img0, proy_points_2D, real_points_2D, name=ffname)
 
 # plt.figure()
 # plt.plot(df_vel.loc[vel_pve].to_numpy())
@@ -112,6 +151,7 @@ vel_pve = (df_vel.index.intersection(df_pve.index)).tolist()
 
 # plt.show()
 
+'''
 fig, ax1 = plt.subplots()
 
 color = 'tab:red'
@@ -129,12 +169,17 @@ ax2.tick_params(axis='y', labelcolor=color)
 
 fig.tight_layout()
 plt.title('Angular Velocity vs RMS Error')
-plt.show()
+
+plt.figure()
+plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
+plt.show() # '''
 
 # what's left
-## get the distance between both points
-## divide by the time between frames (1/29.97)
-## put them on a list to plot vel vs rmse
+# determinar que es ese valor RMS (ojala error en puntos)
+# correr los videos del dron y determinar periodos de velocidad angular alto
 
+# hacer más calibraciones guardando rvec y tvec
+# usar esos rvec y tvec para hacer reproyeccion de puntos
+# calcular error rms promedio de la imagen
 
 

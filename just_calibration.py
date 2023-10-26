@@ -134,6 +134,8 @@ print('Distortion coefficients:\n', dist)
 if args.extended:
     print('Error per frame:\n', pVE_extended)
 
+print(np.array(rvecs))
+
 if args.save:
     summary = input("Insert comments: ")
     fs = cv.FileStorage('./results/'+args.file[:-14]+'.yml', cv.FILE_STORAGE_WRITE)
@@ -141,6 +143,9 @@ if args.save:
     fs.write('init_cam_calib', calibfile)
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
+    fs.write('rvec', np.array(rvecs))
+    fs.write('tvec', np.array(tvecs))
+    
     if args.extended:
         pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
         fs.write('std_intrinsics', stdInt)
