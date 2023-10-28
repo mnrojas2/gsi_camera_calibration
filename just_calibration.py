@@ -134,8 +134,6 @@ print('Distortion coefficients:\n', dist)
 if args.extended:
     print('Error per frame:\n', pVE_extended)
 
-print(np.array(rvecs))
-
 if args.save:
     summary = input("Insert comments: ")
     fs = cv.FileStorage('./results/'+args.file[:-14]+'.yml', cv.FILE_STORAGE_WRITE)
