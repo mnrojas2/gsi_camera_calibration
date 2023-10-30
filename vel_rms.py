@@ -112,6 +112,7 @@ df_pve = pd.DataFrame(data=pve[:,1], index=pve_keys, columns=['RMSE'])
 
 vel_pve = (df_vel.index.intersection(df_pve.index)).tolist()
 
+'''
 fig, ax1 = plt.subplots()
 
 color = 'tab:red'
@@ -134,7 +135,7 @@ plt.figure()
 plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
 plt.show() # '''
 
-'''
+#'''
 rms_error = []
 rms_names = []
 
