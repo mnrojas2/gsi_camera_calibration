@@ -145,8 +145,9 @@ for i in range(len(imgpoints)):
     for j in range(len(pve[:,0])):
         if ffname == 'frame'+str(int(pve[j,0])):
             proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvecs[j], tvec=tvecs[j], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)
-            print(proy_points_2D)
-
+            
+            
+            
             dist_pts2D = np.linalg.norm(proy_points_2D.reshape(-1,2) - real_points_2D.reshape(-1,2), axis=1)
             mean_pts2D = np.mean(dist_pts2D)
             rms_error.append(mean_pts2D)

@@ -21,14 +21,14 @@ def gaus(X,C,X_mean,sigma):
 
 def df_histogram(dataframe, colname, *args, gauss_c=False):
     for arg in args:
-        idx_filt = arg[0]
+        idx_str = arg[0]
         idx_type = arg[1]
         
         # Find rows if a particular str appears in summary or index
         if idx_type == 'index':
-            df_idx = dataframe.index.str.contains(idx_filt, na=False)
+            df_idx = dataframe.index.str.contains(idx_str, na=False)
         elif idx_type == 'summary':
-            df_idx = dataframe.summary.str.contains(idx_filt, na=False).to_numpy()
+            df_idx = dataframe.summary.str.contains(idx_str, na=False).to_numpy()
 
         # If there are more than just one arg, then add them bitwise
         if arg == args[0]:
@@ -78,8 +78,29 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
         
         ax.set_xlabel('Pixels')
         ax.set_ylabel("Probability")
-        ax.set_title(f"'{idx_filt[:-1]}' - '{colname[i]}'")
+        ax.set_title(f"'{idx_str[:-1]}' - '{colname[i]}'")
     fig.tight_layout()
+    
+def filter_dataframe(dataframe, *args):
+    for arg in args:
+        idx_str = arg[0]
+        idx_type = arg[1]
+        
+        # Find rows if a particular str appears in summary or index
+        if idx_type in ['index', '-id']:
+            df_idx = dataframe.index.str.contains(idx_str, na=False)
+        elif idx_type in ['summary', '-sm']:
+            df_idx = dataframe.summary.str.contains(idx_str, na=False).to_numpy()
+        
+        # If there are more than just one arg, then add them bitwise
+        if arg == args[0]:
+            df_idx_s = df_idx
+        else:
+            df_idx_s = df_idx_s & df_idx
+    
+    # Filter the original dataframe and calculate mean and std
+    new_df = dataframe[df_idx_s]
+    return new_df
     
 # Main
 def main():
@@ -93,6 +114,7 @@ def main():
         cb = calibfile.split("\\")[-1][:-4]
         mtx = fs.getNode("camera_matrix")
         dcff = fs.getNode("dist_coeff")
+        nframes = len(fs.getNode("per_view_errors").mat())
         
         summary = fs.getNode("summary")
 
@@ -113,27 +135,29 @@ def main():
             cc_data[cb] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3, 'k4': k4, 'k5': k5, 'k6': k6}
         except:
             cc_data[cb] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3}
-        cc_summary[cb] = {'summary': summary.string()}
+        cc_summary[cb] = {'n.frames': nframes, 'summary': summary.string()}
 
     df_ccd = pd.DataFrame(cc_data).T
-    df_ccd_dcb = df_ccd.describe()
-    df_ccd_dcb.loc['std/mean'] = df_ccd_dcb.loc['std'] / df_ccd_dcb.loc['mean']
-    df_ccd_2 = pd.concat([df_ccd, df_ccd_dcb])
-    df_ccd_c = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
+    df_dcb = df_ccd.describe()
+    df_dcb.loc['std/mean'] = df_dcb.loc['std'] / df_dcb.loc['mean']
+    df_ccd_2 = pd.concat([df_ccd, df_dcb])
+    df_complete = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
     
-    df_histogram(df_ccd_c, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True)
+    df_histogram(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True)
     plt.show()
     
-    #Por video, mismo tipo de error, al menos 3 casos
-    #Por distancia, mismo video, todos los casos
-    #Por tiempo, mismo video, todos los casos
-    #Por tiempo y puntos, mismo video, todos los casos.
-    
     if args.excel:
-        df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
-
-    # with pd.ExcelWriter('results/camera_calibration.xlsx') as writer:  
-    #     df_mtx.to_excel(writer, sheet_name='Calibration Matrix')
-    #     df_dcff.to_excel(writer, sheet_name='Distortion Coefficients')
+        # df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
+        
+        df_dist = filter_dataframe(df_complete, ('Filter by distance,', '-sm'))
+        df_time = filter_dataframe(df_complete, ('Filter by time,', '-sm'))
+        df_pnts = filter_dataframe(df_complete, ('Filter by time and points,', '-sm'))
+        
+        with pd.ExcelWriter('results/camera_calibration.xlsx') as writer:
+            df_complete.to_excel(writer, sheet_name='Summary')
+            df_dist.to_excel(writer, sheet_name='Filter by distance')
+            df_time.to_excel(writer, sheet_name='Filter by time')
+            df_pnts.to_excel(writer, sheet_name='Filter by time and points')
+            
     
 if __name__=='__main__': main()
