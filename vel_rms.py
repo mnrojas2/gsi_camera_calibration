@@ -145,11 +145,11 @@ for i in range(len(imgpoints)):
     for j in range(len(pve[:,0])):
         if ffname == 'frame'+str(int(pve[j,0])):
             proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvecs[j], tvec=tvecs[j], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)[0]
-            dist_pts2D = np.linalg.norm(proy_points_2D.reshape(-1,2) - real_points_2D.reshape(-1,2), axis=1)
+            dist_pts2D = cv.norm(proy_points_2D.reshape(-1,2), real_points_2D.reshape(-1,2), normType=cv.NORM_L2)
             mean_pts2D = np.sqrt(np.dot(dist_pts2D, dist_pts2D)/real_points_2D.shape[0])
             rms_error.append(mean_pts2D)
             
-            print(ffname, pve[j,1], np.mean(dist_pts2D), rms_error[-1], rms_error[-1]/pve[j,1])
+            print(ffname, pve[j,1], rms_error[-1], rms_error[-1]/pve[j,1])
             rms_names.append(ffname)
     
 df_rms = pd.DataFrame(data=np.array(rms_error), index=rms_names, columns=['Error'])
@@ -185,16 +185,11 @@ plt.figure()
 plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
 plt.show() # '''
 
-# Corregir:
-# - Hacer dataframe con todos los datos del pkl.
-# - Hacer intersección entre la lista de pve_keys y el dataframe creado para solo tener los frames que se utilizaron en la calibración
-# - Luego obtener df_rms y plotear con df_vel
-
 # img0 = cv.imread(f'./sets/{args.file}Finf/{ret_names[rp0]}.jpg')
 # displayImageWPoints(img0, proy_points_2D, real_points_2D, name=ffname)
 
 # what's left
-# determinar que es ese valor RMS (ojala error en puntos)
+# determinar que es ese valor RMS (ojala error en puntos) -> Es el error rms promedio asociado a la distancia del punto en pixeles
 # correr los videos del dron y determinar periodos de velocidad angular alto
 
 # hacer más calibraciones guardando rvec y tvec
