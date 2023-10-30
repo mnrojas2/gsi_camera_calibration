@@ -144,24 +144,46 @@ for i in range(len(imgpoints)):
     real_points_2D = imgpoints[i]
     for j in range(len(pve[:,0])):
         if ffname == 'frame'+str(int(pve[j,0])):
-            proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvecs[j], tvec=tvecs[j], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)
-            
-            
-            
+            proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvecs[j], tvec=tvecs[j], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)[0]
             dist_pts2D = np.linalg.norm(proy_points_2D.reshape(-1,2) - real_points_2D.reshape(-1,2), axis=1)
-            mean_pts2D = np.mean(dist_pts2D)
+            mean_pts2D = np.sqrt(np.dot(dist_pts2D, dist_pts2D)/real_points_2D.shape[0])
             rms_error.append(mean_pts2D)
-            print(ffname, pve[j,1], mean_pts2D, mean_pts2D/pve[j,1])
+            
+            print(ffname, pve[j,1], np.mean(dist_pts2D), rms_error[-1], rms_error[-1]/pve[j,1])
             rms_names.append(ffname)
     
 df_rms = pd.DataFrame(data=np.array(rms_error), index=rms_names, columns=['Error'])
 
 rms_pve = (df_rms.index.intersection(df_pve.index)).tolist() # '''
 
-# plt.figure()
-# plt.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy())
-# plt.plot(pve[:,0], df_pve.loc[rms_pve].to_numpy())
-# plt.show()
+plt.figure()
+plt.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy(), label='measured')
+plt.plot(pve[:,0], df_pve.loc[rms_pve].to_numpy(), label='from file')
+plt.legend()
+plt.title("RMS Error from file vs measured")
+
+#'''
+fig, ax1 = plt.subplots()
+
+color = 'tab:red'
+ax1.set_xlabel('frame (i)')
+ax1.set_ylabel('RMS Error amplitude (?)')
+ax1.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy(), color=color)
+ax1.tick_params(axis='y', labelcolor=color)
+
+color = 'tab:blue'
+ax2 = ax1.twinx()
+ax2.set_xlabel('frame (i)')
+ax2.set_ylabel('Angular velocity (pixels/s)')
+ax2.plot(pve[1:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
+ax2.tick_params(axis='y', labelcolor=color)
+
+fig.tight_layout()
+plt.title('Angular Velocity vs RMS Error')
+
+plt.figure()
+plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
+plt.show() # '''
 
 # Corregir:
 # - Hacer dataframe con todos los datos del pkl.
