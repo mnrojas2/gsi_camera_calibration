@@ -100,7 +100,7 @@ df_vel = pd.DataFrame(data=vel_list, index=ret_names[1:], columns=['vel_ang'])
 
 print(f'Loading {args.file}-{args.calibfile}.yml')
 fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
-
+print(f"File '{args.file}-{args.calibfile}.yml' description:",fs.getNode("summary").string())
 mtx = fs.getNode("camera_matrix").mat()
 dist_coeff = fs.getNode("dist_coeff").mat()
 rvecs = fs.getNode("rvec").mat()
@@ -149,7 +149,7 @@ for i in range(len(imgpoints)):
             mean_pts2D = np.sqrt(np.dot(dist_pts2D, dist_pts2D)/real_points_2D.shape[0])
             rms_error.append(mean_pts2D)
             
-            print(ffname, pve[j,1], rms_error[-1], rms_error[-1]/pve[j,1])
+            # print(ffname, pve[j,1], rms_error[-1], rms_error[-1]/pve[j,1])
             rms_names.append(ffname)
     
 df_rms = pd.DataFrame(data=np.array(rms_error), index=rms_names, columns=['Error'])

@@ -11,7 +11,7 @@ parser.add_argument('vidname', type=str, help='Name of video (mp4 format).')
 parser.add_argument('-in', '--folder', type=str, metavar='folder', dest='origin_folder', default='', help='Name of the folder/directory containing the video. Video or directory must be inside ./videos/ folder.')
 parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=1, help='Reduction of number of frames (total/N).')
 parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
-
+parser.add_argument('-sn', '--startnumber', type=int, default=0, help="Number associated with the first frame and from where the count is starting. eg: 'frame0', 'frame1250'.")
 def main():
     # Take all arguments from terminal
     args = parser.parse_args()
@@ -31,7 +31,7 @@ def main():
         
         # Start counters
         pbar = tqdm(desc='READING FRAMES', total=total_frame_count, unit=' frames')
-        frame_no = 0
+        frame_no = args.startnumber
         
         while(vidcap.isOpened()):
             frame_exists, curr_frame = vidcap.read()
