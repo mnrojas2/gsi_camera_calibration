@@ -64,8 +64,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
             raise TypeError('Argument format is not allowed.')
         clr = [255, 0, 0]
         if len(args) > 1:
-            clr += [-128, 128, 128]
-            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
+            clr = (np.array([128, 128, 128]) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
             cv.circle(img_copy, values[i], 4, clr, -1)
             if show_names and isinstance(arg, pd.DataFrame):

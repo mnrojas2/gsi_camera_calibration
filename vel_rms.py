@@ -12,9 +12,8 @@ from matplotlib import pyplot as plt
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
-parser.add_argument('file', type=str, help='Name of the file containing data (*pkl).')
+parser.add_argument('file', type=str, help='Name of the file containing data (*.pkl).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
-
 
 # Functions
 def displayImage(img, width=1280, height=720, name='Picture'):
@@ -37,10 +36,9 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
             values = arg.to_numpy().astype(int)
         else:
             raise TypeError('Argument format is not allowed.')
-        clr = np.array([255, 0, 0])
+        clr = [255, 0, 0]
         if len(args) > 1:
-            clr += np.array([-128, 128, 128])
-            clr = (np.array(clr) + np.random.randint(-128, 128, size=3)).tolist()
+            clr = (np.array([128, 128, 128]) + np.random.randint(-128, 128, size=3)).tolist()
         for i in range(arg.shape[0]):
             cv.circle(img_copy, values[i], 4, clr, -1)
             if show_names and isinstance(arg, pd.DataFrame):
@@ -98,6 +96,7 @@ df_vel = pd.DataFrame(data=vel_list, index=ret_names[1:], columns=['vel_ang'])
 
 #############################################################################################
 
+# Load .yml file
 print(f'Loading {args.file}-{args.calibfile}.yml')
 fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
 print(f"File '{args.file}-{args.calibfile}.yml' description:",fs.getNode("summary").string())

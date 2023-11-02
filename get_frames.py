@@ -12,6 +12,8 @@ parser.add_argument('-in', '--folder', type=str, metavar='folder', dest='origin_
 parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=1, help='Reduction of number of frames (total/N).')
 parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
 parser.add_argument('-sn', '--startnumber', type=int, default=0, help="Number associated with the first frame and from where the count is starting. eg: 'frame0', 'frame1250'.")
+
+# Main function
 def main():
     # Take all arguments from terminal
     args = parser.parse_args()
