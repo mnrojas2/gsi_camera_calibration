@@ -4,12 +4,14 @@ import os
 import re
 import copy
 import glob
+import json
+import pickle
 import argparse
 import numpy as np
 import pandas as pd
 import cv2 as cv
 import pymap3d as pm
-
+from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 # Initialize parser
@@ -17,6 +19,8 @@ parser = argparse.ArgumentParser(description='Camera calibration using chessboar
 parser.add_argument('file', type=str, help='Name of the file containing targets in 3D data (*.txt).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
 parser.add_argument('-dg', '--displaygraphs', action='store_true', default=False, help='Shows graphs and images.')
+parser.add_argument('-s',  '--save', action='store_true', default=False, help='Saves data related with point location and reconstruction vectors.')
+parser.add_argument('-hf', '--halfway', action='store_true', default=False, help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
 
 
 # Functions
@@ -78,6 +82,11 @@ points_3D = gpsArr.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but a
 # Point of interest (center)
 POI = gpsArr.loc[['pt5']].to_numpy()[0]
 
+# Crossmatch
+# Initialize crossmatching algorithm functions
+orb = cv.ORB_create()
+bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
+
 # Load .yml file
 print(f'Loading {args.calibfile}.yml')
 fs = cv.FileStorage(f'./results/{args.calibfile}.yml', cv.FILE_STORAGE_READ)
@@ -102,11 +111,29 @@ points_2D = np.array([
 ], dtype=np.float64)
 # Note: solvePnP will fail if values in points2D aren't in float format.
 
-new_pnts = []
+start_frame = 0
+points2D_all = []
+ret_names = []
+vecs = []
+
+if args.halfway:
+    # Load .txt file with some specific frame codetarget locations
+    print(f'./datasets/dataTOCO_vid.pkl')
+    pFile = pickle.load(open(f"./datasets/dataTOCO_vid.pkl","rb"))
+    
+    points2D_all = pFile['2D_points']
+    ret_names = pFile['frame_name']
+    vecs = pFile['rt_vectors']
+    points_2D = np.array(points2D_all[-1])
+    
+    # Save starting point
+    start_frame = 1+int(pFile['last_passed_frame'])
+
+new_pt3D = []
 for i in range(points_3D.shape[0]):
     pnts = pm.geodetic2enu(points_3D[i,0], points_3D[i,1], points_3D[i,2], POI[0], POI[1], POI[2])
-    new_pnts.append(pnts)
-pts3D = np.array(new_pnts)
+    new_pt3D.append(pnts)
+pts3D = np.array(new_pt3D)
 
 if args.displaygraphs:
     fig = plt.figure(figsize=(12, 7))
@@ -121,39 +148,89 @@ if args.displaygraphs:
 print(f"Searching images in ./sets/C0040/")
 images = sorted(glob.glob(f'./sets/C0040/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
-fname = images[0]
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+if start_frame != 0:
+    pbar.update(start_frame)
+for fname in images[start_frame:9187]:
+    img = cv.imread(fname)
+    ffname = fname.split("\\")[-1][:-4]
 
-img = cv.imread(fname)
-ffname = fname.split("\\")[-1][:-4]
+    img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    img_gray = cv.medianBlur(img_gray, 5)
+    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
+        
+    if fname != images[start_frame]:
+        # Detect new position of CODETARGETS
+        kp1, des1 = orb.detectAndCompute(img_old,None)
+        kp2, des2 = orb.detectAndCompute(img_gray,None)
+        
+        # Match descriptors.
+        matches = bf.match(des1,des2)
+        dmatches = sorted(matches, key=lambda x:x.distance)
+        
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
+        
+        # img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[::2],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        # displayImage(img3, name=fname)
+        
+        # Find homography matrix and do perspective transform to ct_points
+        M, mask = cv.findHomography(src_pts, dst_pts, cv.LMEDS, 5.0)
+        pts2D = cv.perspectiveTransform(pts2D_old, M)
+        
+        # Remove CODETARGETS if reprojections are not inside the image
+        pts2D_nn = [pts2D[i] for i in range(pts2D.shape[0]) if pts2D[i,0,0] > 0 and pts2D[i,0,1] > 0]
+        points_2D = np.array(pts2D_nn)
+                
+    # _, rvec, tvec = cv.solvePnP(pts3D, points_2D, cameraMatrix=mtx, distCoeffs=dist_coeff)
+    # pts2D_repr = cv.projectPoints(pts3D, rvec, tvec, cameraMatrix=mtx, distCoeffs=dist_coeff)[0]
+
+    displayImageWPoints(img, points_2D)
+
+    pts2D_new = []
+    for pt in points_2D:
+        npt = pt.reshape(2).astype(int)
+        wdw = 25
+        contours, _ = cv.findContours(thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        
+        # Calculate moments
+        try:
+            M = cv.moments(contours[-1])
+        except: 
+            displayImage(thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw])
+        
+        # Calculate x,y
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+        pts2D_new.append([[npt[0]-wdw+cX, npt[1]-wdw+cY]])
+    
+    pts2D_new = np.array(pts2D_new, dtype=np.float64)
+    _, rvec, tvec = cv.solvePnP(pts3D, pts2D_new, cameraMatrix=mtx, distCoeffs=dist_coeff)
+    
+    points2D_all.append(pts2D_new)
+    vecs.append(np.array([rvec, tvec]))
+    ret_names.append(ffname)
+    
+    if args.save:            
+        vid_data = {'2D_points': points2D_all, 'rt_vectors': vecs, 'frame_name': ret_names, 'last_passed_frame': images.index(fname), }
+        with open(f'./datasets/dataTOCO_vid0.pkl', 'wb') as fp:
+            pickle.dump(vid_data, fp)
+    
+    pts2D_old = pts2D_new
+    img_old = img_gray
+    pbar.update(1)
+pbar.close()
+
+img = cv.imread(images[0])
+
+if args.save:
+    vid_data = {'3D_points': pts3D, '2D_points': points2D_all, 'frame_name': ret_names,
+                'init_mtx': mtx, 'init_dist': dist_coeff, 'img_shape': img.shape[1::-1],
+                'init_calibfile': args.calibfile, 'rt_vectors': vecs}
+    with open(f'./datasets/pkl-files/TOCO_vid0.pkl', 'wb') as fp:
+        pickle.dump(vid_data, fp)
+        print(f"Dictionary saved successfully as './datasets/pkl-files/TOCO_vid0.pkl'")
 
 if args.displaygraphs:
-    displayImageWPoints(img, points_2D, name=ffname)
-     
-_, rvec, tvec = cv.solvePnP(pts3D, points_2D, cameraMatrix=mtx, distCoeffs=dist_coeff, flags=cv.SOLVEPNP_SQPNP)
-repr_pts2D = cv.projectPoints(pts3D, rvec, tvec, cameraMatrix=mtx, distCoeffs=dist_coeff)[0]
-
-if args.displaygraphs:
-    displayImageWPoints(img, repr_pts2D, name=ffname)
-    
-gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-gray = cv.medianBlur(gray, 5)
-thr = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
-
-new_pts2D = []
-for pt in repr_pts2D:
-    npt = pt.reshape(2).astype(int)
-    wdw = 25
-    contours, _ = cv.findContours(thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-
-    # Calculate moments
-    M = cv.moments(contours[-1])
-    
-    # Calculate x,y
-    if M["m00"] != 0:
-        cX = int(M["m10"] / M["m00"])
-        cY = int(M["m01"] / M["m00"])
-    new_pts2D.append([[npt[0]-wdw+cX, npt[1]-wdw+cY]])
-
-new_pts2D = np.array(new_pts2D)
-
-displayImageWPoints(img, new_pts2D, name=ffname)
+    displayImageWPoints(img, points_2D, name=ret_names[-1])

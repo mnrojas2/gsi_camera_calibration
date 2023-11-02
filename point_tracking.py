@@ -302,8 +302,8 @@ for fname in images[start_frame:]:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
         dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
         
-        img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        # plt.imshow(img3),plt.show()
+        # img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        # displayImage(img3)
         
         # Find homography matrix and do perspective transform to ct_points
         M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
@@ -427,6 +427,8 @@ for fname in images[start_frame:]:
 pbar.close()
 
 if args.save:
+    # Save target data in pkl to analyze it in other files.
+    # Note: Data will not complete if argparse option '--halfway' is used.
     vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names,
                 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1],
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
