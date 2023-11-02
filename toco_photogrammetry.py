@@ -71,7 +71,7 @@ args = parser.parse_args()
 # Import the 3D points from the csv file
 gpsArr = pd.read_csv(f'./datasets/April22GPS/{args.file}.txt', header=None, names=['Lat','Lon','Alt', 'null'])
 gpsArr.dropna(axis=1, inplace=True)
-# gpsArr.drop(['pt2', 'pt12'], inplace=True)
+gpsArr.drop(['pt2', 'pt12'], inplace=True)
 
 points_3D = gpsArr.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
@@ -89,17 +89,17 @@ dist_coeff = fs.getNode("dist_coeff").mat()
 
 # Points 2D
 points_2D = np.array([
-    [2171,  220],
-    [2191,  884],
-    [2071, 1303],
-    [1833,  750],
-    [1937, 1444],
-    [1714, 1293],
-    [1475, 1784],
-    [1184, 1081],
-    [1048, 1599],
-    [1103,  315],
-], dtype=np.float64).reshape(-1,1,2)
+    [[2171,  220]],
+    [[2191,  884]],
+    [[2071, 1303]],
+    [[1833,  750]],
+    [[1937, 1444]],
+    [[1714, 1293]],
+    [[1475, 1784]],
+    [[1184, 1081]],
+    [[1048, 1599]],
+    [[1103,  315]],
+], dtype=np.float64)
 # Note: solvePnP will fail if values in points2D aren't in float format.
 
 new_pnts = []
@@ -113,7 +113,8 @@ if args.displaygraphs:
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(pts3D[:,0], pts3D[:,1], pts3D[:,2], zdir='z')
     for i in range(pts3D.shape[0]):
-        ax.text(pts3D[i,0],pts3D[i,1],pts3D[i,2],  '%s' % (str(i)), size=20, zorder=1, color='k') 
+        ax.text(pts3D[i,0],pts3D[i,1],pts3D[i,2],  '%s' % (str(i+1)), size=20, zorder=1, color='k')
+    ax.set_aspect('equal')
     plt.show()
 
 # Get images from directory
@@ -128,7 +129,31 @@ ffname = fname.split("\\")[-1][:-4]
 if args.displaygraphs:
     displayImageWPoints(img, points_2D, name=ffname)
      
-res, rvec, tvec = cv.solvePnP(pts3D, points_2D, cameraMatrix=mtx, distCoeffs=dist_coeff)
-repr_pts2D = cv.projectPoints(points_3D, rvec, tvec, cameraMatrix=mtx, distCoeffs=dist_coeff)[0]
+_, rvec, tvec = cv.solvePnP(pts3D, points_2D, cameraMatrix=mtx, distCoeffs=dist_coeff, flags=cv.SOLVEPNP_SQPNP)
+repr_pts2D = cv.projectPoints(pts3D, rvec, tvec, cameraMatrix=mtx, distCoeffs=dist_coeff)[0]
 
-scatterPlot(repr_pts2D[:,0,:])
+if args.displaygraphs:
+    displayImageWPoints(img, repr_pts2D, name=ffname)
+    
+gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+gray = cv.medianBlur(gray, 5)
+thr = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
+
+new_pts2D = []
+for pt in repr_pts2D:
+    npt = pt.reshape(2).astype(int)
+    wdw = 25
+    contours, _ = cv.findContours(thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+
+    # Calculate moments
+    M = cv.moments(contours[-1])
+    
+    # Calculate x,y
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+    new_pts2D.append([[npt[0]-wdw+cX, npt[1]-wdw+cY]])
+
+new_pts2D = np.array(new_pts2D)
+
+displayImageWPoints(img, new_pts2D, name=ffname)
