@@ -155,18 +155,18 @@ df_rms = pd.DataFrame(data=np.array(rms_error), index=rms_names, columns=['Error
 
 rms_pve = (df_rms.index.intersection(df_pve.index)).tolist() # '''
 
-plt.figure()
-plt.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy(), label='measured')
-plt.plot(pve[:,0], df_pve.loc[rms_pve].to_numpy(), label='from file')
-plt.legend()
-plt.title("RMS Error from file vs measured")
+# plt.figure()
+# plt.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy(), label='measured')
+# plt.plot(pve[:,0], df_pve.loc[rms_pve].to_numpy(), label='from file')
+# plt.legend()
+# plt.title("RMS Error from file vs measured")
 
 #'''
-fig, ax1 = plt.subplots()
+fig, ax1 = plt.subplots(figsize=(16, 9))
 
 color = 'tab:red'
 ax1.set_xlabel('frame (i)')
-ax1.set_ylabel('RMS Error amplitude (?)')
+ax1.set_ylabel('RMS Error amplitude (pixels)')
 ax1.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy(), color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
@@ -174,15 +174,19 @@ color = 'tab:blue'
 ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('Angular velocity (pixels/s)')
-ax2.plot(pve[1:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
+try:
+    ax2.plot(pve[1:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
+except:
+    ax2.plot(pve[:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
 fig.tight_layout()
-plt.title('Angular Velocity vs RMS Error')
+plt.title(f'Angular Velocity vs RMS Error ({fs.getNode("summary").string()})')
+plt.savefig(f'./plots/{args.file}-{args.calibfile}.jpg', bbox_inches='tight', dpi=300)
 
-plt.figure()
-plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
-plt.show() # '''
+# plt.figure()
+# plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
+# plt.show() # '''
 
 # img0 = cv.imread(f'./sets/{args.file}Finf/{ret_names[rp0]}.jpg')
 # displayImageWPoints(img0, proy_points_2D, real_points_2D, name=ffname)

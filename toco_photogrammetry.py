@@ -109,17 +109,30 @@ points_2D = np.array([
     [[1048, 1599]],
     [[1103,  315]],
 ], dtype=np.float64)
+
+points_2D = np.array([
+    [[2188,  281]],
+    [[2211,  941]],
+    [[2091, 1361]],
+    [[1850,  808]],
+    [[1955, 1501]],
+    [[1731, 1350]],
+    [[1488, 1844]],
+    [[1197, 1139]],
+    [[1061, 1657]],
+    [[1121,  383]]
+], dtype=np.float64)
 # Note: solvePnP will fail if values in points2D aren't in float format.
 
-start_frame = 0
+st_frame = 0
 points2D_all = []
 ret_names = []
 vecs = []
 
 if args.halfway:
     # Load .txt file with some specific frame codetarget locations
-    print(f'./datasets/dataTOCO_vid.pkl')
-    pFile = pickle.load(open(f"./datasets/dataTOCO_vid.pkl","rb"))
+    print(f'./datasets/dataTOCO_vid-1.pkl')
+    pFile = pickle.load(open(f"./datasets/dataTOCO_vid-1.pkl","rb"))
     
     points2D_all = pFile['2D_points']
     ret_names = pFile['frame_name']
@@ -127,7 +140,7 @@ if args.halfway:
     points_2D = np.array(points2D_all[-1])
     
     # Save starting point
-    start_frame = 1+int(pFile['last_passed_frame'])
+    st_frame = 1+int(pFile['last_passed_frame'])
 
 new_pt3D = []
 for i in range(points_3D.shape[0]):
@@ -145,13 +158,13 @@ if args.displaygraphs:
     plt.show()
 
 # Get images from directory
-print(f"Searching images in ./sets/C0040/")
-images = sorted(glob.glob(f'./sets/C0040/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+print(f"Searching images in ./sets/C0042/")
+images = sorted(glob.glob(f'./sets/C0042/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
-if start_frame != 0:
-    pbar.update(start_frame)
-for fname in images[start_frame:9187]:
+if st_frame != 0:
+    pbar.update(st_frame)
+for fname in images[st_frame:8886]:
     img = cv.imread(fname)
     ffname = fname.split("\\")[-1][:-4]
 
@@ -159,7 +172,7 @@ for fname in images[start_frame:9187]:
     img_gray = cv.medianBlur(img_gray, 5)
     thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
         
-    if fname != images[start_frame]:
+    if fname != images[st_frame]:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None)
         kp2, des2 = orb.detectAndCompute(img_gray,None)
@@ -185,7 +198,8 @@ for fname in images[start_frame:9187]:
     # _, rvec, tvec = cv.solvePnP(pts3D, points_2D, cameraMatrix=mtx, distCoeffs=dist_coeff)
     # pts2D_repr = cv.projectPoints(pts3D, rvec, tvec, cameraMatrix=mtx, distCoeffs=dist_coeff)[0]
 
-    displayImageWPoints(img, points_2D)
+    # if images.index(fname) % 500 == 0:
+    #     displayImageWPoints(img, points_2D)
 
     pts2D_new = []
     for pt in points_2D:
@@ -213,8 +227,8 @@ for fname in images[start_frame:9187]:
     ret_names.append(ffname)
     
     if args.save:            
-        vid_data = {'2D_points': points2D_all, 'rt_vectors': vecs, 'frame_name': ret_names, 'last_passed_frame': images.index(fname), }
-        with open(f'./datasets/dataTOCO_vid0.pkl', 'wb') as fp:
+        vid_data = {'2D_points': points2D_all, 'rt_vectors': vecs, 'frame_name': ret_names, 'last_passed_frame': images.index(fname)}
+        with open(f'./datasets/dataTOCO_vid1.pkl', 'wb') as fp:
             pickle.dump(vid_data, fp)
     
     pts2D_old = pts2D_new
@@ -228,9 +242,9 @@ if args.save:
     vid_data = {'3D_points': pts3D, '2D_points': points2D_all, 'frame_name': ret_names,
                 'init_mtx': mtx, 'init_dist': dist_coeff, 'img_shape': img.shape[1::-1],
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
-    with open(f'./datasets/pkl-files/TOCO_vid0.pkl', 'wb') as fp:
+    with open(f'./datasets/pkl-files/TOCO_vid1.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
-        print(f"Dictionary saved successfully as './datasets/pkl-files/TOCO_vid0.pkl'")
+        print(f"Dictionary saved successfully as './datasets/pkl-files/TOCO_vid1.pkl'")
 
 if args.displaygraphs:
     displayImageWPoints(img, points_2D, name=ret_names[-1])
