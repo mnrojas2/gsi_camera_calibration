@@ -221,7 +221,7 @@ if args.halfway:
         frame_dict = json.load(json_file)
     
     # Save starting point
-    start_frame = int(frame_dict['last_passed_frame'][5:])
+    start_frame = 1+int(frame_dict['last_passed_frame'])
     frame_dict.pop('last_passed_frame')
     
     # Get point values
@@ -407,7 +407,7 @@ for fname in images[start_frame:]:
     # Save CODETARGETS data in a .txt file in case it's necessary to restart halfway through the process.
     if args.save:
         save_corners = df_corners.to_dict()
-        save_corners['last_passed_frame'] = ffname
+        save_corners['last_passed_frame'] = images.index(fname)
         with open(f'./datasets/points-data/data{args.folder}.txt', 'w') as fp:
             json.dump(save_corners, fp, indent=4)
     
