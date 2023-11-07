@@ -7,6 +7,7 @@ import glob
 import argparse
 import json
 import re
+import os
 import copy
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -32,7 +33,8 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.waitKey(0)
     cv.destroyAllWindows()
     
-def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
+def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, fdir='new_set'):
+    # Create output folder if it wasn't created yet
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
@@ -53,7 +55,9 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False):
             if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
-        cv.imwrite(f'./tests/tracked-sets/fC51e/{name}.jpg', img_copy)
+        if not os.path.exists('./sets/tracked-sets/'+fdir):
+            os.mkdir('./sets/tracked-sets/'+fdir)
+        cv.imwrite(f'./sets/tracked-sets/{fdir}/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
