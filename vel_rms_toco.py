@@ -108,18 +108,18 @@ fig, ax1 = plt.subplots()
 color = 'tab:red'
 ax1.set_xlabel('frame (i)')
 ax1.set_ylabel('RMS Error amplitude (Pixels)')
-ax1.plot(np.arange(8000), rms_error[:8000:1], color=color) # rms_error.shape[0]
+ax1.plot(np.arange(80), rms_error[:8000:100], color=color) # rms_error.shape[0]
 ax1.tick_params(axis='y', labelcolor=color)
 
 color = 'tab:blue'
 ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('Angular velocity (pixels/s)')
-ax2.plot(np.arange(8000), vel_list[:8000:1], color=color) # vel_list.shape[0]
+ax2.plot(np.arange(80), vel_list[:8000:100], color=color) # vel_list.shape[0]
 ax2.tick_params(axis='y', labelcolor=color)
 
 fig.tight_layout()
-plt.title('Angular Velocity vs RMS Error')
+plt.title('Angular Velocity and RMS Error vs time (frames)')
 plt.show()
 
 # img0 = cv.imread(f'./sets/{args.file}Finf/{ret_names[rp0]}.jpg')
@@ -128,9 +128,5 @@ plt.show()
 # what's left
 # determinar que es ese valor RMS (ojala error en puntos) -> Es el error rms promedio asociado a la distancia del punto en pixeles
 # correr los videos del dron y determinar periodos de velocidad angular alto
-
-# hacer más calibraciones guardando rvec y tvec
-# usar esos rvec y tvec para hacer reproyeccion de puntos
-# calcular error rms promedio de la imagen
 
 

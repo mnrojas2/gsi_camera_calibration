@@ -76,7 +76,8 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
             x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),500)
             ax.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit')
         
-        ax.set_xlabel('Pixels')
+        if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
+            ax.set_xlabel('Pixels')
         ax.set_ylabel("Probability")
         ax.set_title(f"'{idx_str[:-1]}' - '{colname[i]}'")
     fig.tight_layout()

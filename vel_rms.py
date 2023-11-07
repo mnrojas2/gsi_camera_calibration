@@ -9,6 +9,7 @@ import pickle
 import copy
 from scipy.spatial.transform import Rotation as R 
 from matplotlib import pyplot as plt
+from sklearn.linear_model import LinearRegression
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
@@ -66,10 +67,6 @@ imgpoints = pFile['2D_points']
 ret_names = pFile['name_points']
 tgt_names = pFile['name_targets']
 
-camera_matrix = pFile['init_mtx']
-dist_coeff = pFile['init_dist']
-img_shape = pFile['img_shape']
-
 calibfile = pFile['init_calibfile']
 vecs = pFile['rt_vectors']
 
@@ -100,69 +97,49 @@ df_vel = pd.DataFrame(data=vel_list, index=ret_names[1:], columns=['vel_ang'])
 print(f'Loading {args.file}-{args.calibfile}.yml')
 fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
 print(f"File '{args.file}-{args.calibfile}.yml' description:",fs.getNode("summary").string())
-mtx = fs.getNode("camera_matrix").mat()
+camera_matrix = fs.getNode("camera_matrix").mat() # Aquí estaba el problema, no se había inicializado con el nombre correcto y estaba tomando el valor que venía en el pkl.
 dist_coeff = fs.getNode("dist_coeff").mat()
 rvecs = fs.getNode("rvec").mat()
 tvecs = fs.getNode("tvec").mat()
 pve = fs.getNode("per_view_errors").mat()
+
+#############################################################################################
 
 pve_keys = ['frame'+str(int(pve[i,0])) for i in range(pve.shape[0])]
 df_pve = pd.DataFrame(data=pve[:,1], index=pve_keys, columns=['RMSE'])
 
 vel_pve = (df_vel.index.intersection(df_pve.index)).tolist()
 
-'''
-fig, ax1 = plt.subplots()
-
-color = 'tab:red'
-ax1.set_xlabel('frame (i)')
-ax1.set_ylabel('RMS Error amplitude (?)')
-ax1.plot(pve[1:,0], df_pve.loc[vel_pve].to_numpy(), color=color)
-ax1.tick_params(axis='y', labelcolor=color)
-
-color = 'tab:blue'
-ax2 = ax1.twinx()
-ax2.set_xlabel('frame (i)')
-ax2.set_ylabel('Angular velocity (pixels/s)')
-ax2.plot(pve[1:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
-ax2.tick_params(axis='y', labelcolor=color)
-
-fig.tight_layout()
-plt.title('Angular Velocity vs RMS Error')
-
-plt.figure()
-plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
-plt.show() # '''
-
 #'''
+# Calculating RMS Error by hand (using rvec and tvec from file)
+# UPDATE: using camera_matrix and dist_coeff, we can reconstruct the same rvec and tvec vectors that are saves in the calibration file. In that way, we can confirm we can make them ourselves to get more values.
 rms_error = []
 rms_names = []
 
 for i in range(len(imgpoints)):
     ffname = ret_names[i]
     real_points_2D = imgpoints[i]
-    for j in range(len(pve[:,0])):
-        if ffname == 'frame'+str(int(pve[j,0])):
-            proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvecs[j], tvec=tvecs[j], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)[0]
-            dist_pts2D = cv.norm(proy_points_2D.reshape(-1,2), real_points_2D.reshape(-1,2), normType=cv.NORM_L2)
-            mean_pts2D = np.sqrt(np.dot(dist_pts2D, dist_pts2D)/real_points_2D.shape[0])
-            rms_error.append(mean_pts2D)
-            
-            # print(ffname, pve[j,1], rms_error[-1], rms_error[-1]/pve[j,1])
-            rms_names.append(ffname)
+    
+    #for j in range(len(pve[:,0])):
+        #if ffname == 'frame'+str(int(pve[j,0])):
+    # _, rvec, tvec = cv.solvePnP(objectPoints=objpoints[i], imagePoints=imgpoints[i], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)
+    # print(f'rot_calc: {rvec.T}, rot_calib: {rvecs[j].T}, tra_calc: {tvec.T}, tra_calib:{tvecs[j].T}')
+    # proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvecs[j], tvec=tvecs[j], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)[0]
+    
+    _, rvec, tvec = cv.solvePnP(objectPoints=objpoints[i], imagePoints=real_points_2D, cameraMatrix=camera_matrix, distCoeffs=dist_coeff)
+    proy_points_2D = cv.projectPoints(objectPoints=objpoints[i], rvec=rvec, tvec=tvec, cameraMatrix=camera_matrix, distCoeffs=dist_coeff)[0]
+    dist_pts2D = cv.norm(proy_points_2D.reshape(-1,2), real_points_2D.reshape(-1,2), normType=cv.NORM_L2)
+    mean_pts2D = np.sqrt(np.dot(dist_pts2D, dist_pts2D)/real_points_2D.shape[0])
+    rms_error.append(mean_pts2D)
+    rms_names.append(ffname)
     
 df_rms = pd.DataFrame(data=np.array(rms_error), index=rms_names, columns=['Error'])
-
 rms_pve = (df_rms.index.intersection(df_pve.index)).tolist() # '''
 
-# plt.figure()
-# plt.plot(pve[:,0], df_rms.loc[rms_pve].to_numpy(), label='measured')
-# plt.plot(pve[:,0], df_pve.loc[rms_pve].to_numpy(), label='from file')
-# plt.legend()
-# plt.title("RMS Error from file vs measured")
+# rms_vel = (df_rms.index.intersection(df_vel.index)).tolist()
 
-#'''
-fig, ax1 = plt.subplots(figsize=(16, 9))
+
+fig, ax1 = plt.subplots(figsize=(12, 7))
 
 color = 'tab:red'
 ax1.set_xlabel('frame (i)')
@@ -175,23 +152,47 @@ ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('Angular velocity (pixels/s)')
 try:
-    ax2.plot(pve[1:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
+    ax2.plot(pve[1:,0], df_vel.loc[vel_pve].to_numpy(), color=color) 
 except:
     ax2.plot(pve[:,0], df_vel.loc[vel_pve].to_numpy(), color=color)
 ax2.tick_params(axis='y', labelcolor=color)
-
+plt.title(f'Angular Velocity and RMS Error vs time (frames) ({fs.getNode("summary").string()})')
 fig.tight_layout()
-plt.title(f'Angular Velocity vs RMS Error ({fs.getNode("summary").string()})')
-plt.savefig(f'./plots/{args.file}-{args.calibfile}.jpg', bbox_inches='tight', dpi=300)
+# plt.savefig(f'./plots/{args.file}-{args.calibfile}.jpg', bbox_inches='tight', dpi=300)
 
-# plt.figure()
-# plt.scatter(df_pve.loc[vel_pve].to_numpy(), df_vel.loc[vel_pve].to_numpy())
-# plt.show() # '''
+'''
+# Hacer fit al scatter para determinar relación entre velocidad angular (en grados) con error rms
+# Revisar que los valores estén bien (usar el valor calculado a mano de los RMS, ...
+#   probar determinando rvec y tvec usando los valores definidos de camera_matrix, dist_coeff ...
+#   para compararlo con los resultados del archivo)
+# Histograma -> revisar valores, sacar outliers, encontrar valores ideales ajustados por ajuste gaussiano.
+# Determinar error en metros de los puntos (dron)
+'''
+
+# Linear regression
+
+x_pve = df_pve.loc[vel_pve].to_numpy()
+y_vel = df_vel.loc[vel_pve].to_numpy()#/2550 * 180/np.pi
+
+model = LinearRegression()
+model.fit(x_pve, y_vel)
+y_pred = model.predict(x_pve)
+r_sq = model.score(x_pve, y_vel)
+print(f"coefficient of determination: {r_sq}")
+print(f"intercept: {model.intercept_}, slope: {model.coef_}")
+
+plt.figure(figsize=(12, 7))
+plt.scatter(x_pve, y_vel)
+plt.plot(x_pve, y_pred, color='k')
+plt.xlabel('RMS Error (pixels)')
+plt.ylabel('Angular velocity (pixels/s)')
+plt.title('Angular velocity vs RMS Error')
+plt.tight_layout()
+plt.show() # '''
 
 # img0 = cv.imread(f'./sets/{args.file}Finf/{ret_names[rp0]}.jpg')
 # displayImageWPoints(img0, proy_points_2D, real_points_2D, name=ffname)
 
-# what's left
 # determinar que es ese valor RMS (ojala error en puntos) -> Es el error rms promedio asociado a la distancia del punto en pixeles
 # correr los videos del dron y determinar periodos de velocidad angular alto
 
