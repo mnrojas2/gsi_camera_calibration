@@ -61,6 +61,8 @@ pFile = pickle.load(open(f"./datasets/pkl-files/{args.file}.pkl","rb"))
 
 # Unpack lists
 pts3D = pFile['3D_points']
+pts3D = np.array([item for item in pts3D.tolist() if pts3D.tolist().index(item) not in [1, 11]], dtype=np.float64) if pts3D.shape[0] == 12 else pts3D
+
 imgpoints = pFile['2D_points']
 
 camera_matrix = pFile['init_mtx']
@@ -94,7 +96,6 @@ rms_names = []
 
 for i in range(len(imgpoints)):
     real_points_2D = imgpoints[i]
-    
     proy_points_2D = cv.projectPoints(objectPoints=pts3D, rvec=vecs[i][0], tvec=vecs[i][1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff)[0]
     dist_pts2D = cv.norm(proy_points_2D.reshape(-1,2), real_points_2D.reshape(-1,2), normType=cv.NORM_L2)
     mean_pts2D = np.sqrt(np.dot(dist_pts2D, dist_pts2D)/real_points_2D.shape[0])
@@ -108,14 +109,14 @@ fig, ax1 = plt.subplots(figsize=(12, 7))
 color = 'tab:blue'
 ax1.set_xlabel('frame (i)')
 ax1.set_ylabel('Angular velocity (degrees/s)')
-ax1.plot(10*np.arange(800), vel_list[:8000:10]/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi, color=color) # vel_list.shape[0]
+ax1.plot(vel_list/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi, color=color) # vel_list.shape[0]
 ax1.tick_params(axis='y', labelcolor=color)
 
 color = 'tab:red'
 ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('RMS Error amplitude (Pixels)')
-ax2.plot(10*np.arange(800), rms_error[:8000:10], color=color) # rms_error.shape[0]
+ax2.plot(rms_error, color=color) # rms_error.shape[0]
 ax2.tick_params(axis='y', labelcolor=color)
 
 

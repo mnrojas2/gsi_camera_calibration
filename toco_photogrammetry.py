@@ -14,7 +14,7 @@ import pymap3d as pm
 import skimage.color as skc
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-from scipy.ndimage import gaussian_filter
+from photutils.centroids import centroid_com
 
 
 # Initialize parser
@@ -70,22 +70,23 @@ def scatterPlot(*args, name='Image'):
     plt.show()
     
 
-def delta_E(image_1_rgb,color_target,sigma,dmax):
+def delta_E(image_1_rgb, color_target, sigma, dmax):
     # color filter
-    Lab1=cv.cvtColor((image_1_rgb/255).astype("float32"), cv.COLOR_RGB2LAB)
-    Lab2= skc.rgb2lab(color_target.reshape(1, 1, 3))
+    Lab1 = cv.cvtColor((image_1_rgb/255).astype('float32'), cv.COLOR_BGR2LAB)
+    Lab2 = skc.rgb2lab(color_target.reshape(1, 1, 3))
 
-    deltae1 = skc.deltaE_ciede2000(Lab1,Lab2)
-    deltae = gaussian_filter(deltae1,3)
+    deltae1 = skc.deltaE_ciede2000(Lab1, Lab2)
+    deltae = cv.GaussianBlur(deltae1, (0,0), 3)
 
     minDeltaE = np.min(deltae)
-    if minDeltaE < 60:
-        fimage=dmax*np.exp(-(deltae-minDeltaE)**2/(2*(sigma**2))) # sigma=2 genrally used in color space
-        fimage[fimage<0.65]=0
-    else:
-        fimage = np.ones_like(deltae)*0 #np.nan
     
-    return fimage, minDeltaE, Lab1, Lab2, deltae1, deltae
+    if minDeltaE < 100: # maximum threshold to say there's a target here
+        fimage = dmax*np.exp(-(deltae-minDeltaE)**2/(2*(sigma**2))) # sigma=2 generally used in color space
+        fimage[fimage<0.65] = 0
+    else:
+        fimage = 0*np.ones_like(deltae) #np.nan
+    
+    return fimage, minDeltaE
 
 ################################################################
 # Main
@@ -122,7 +123,7 @@ points_3D_names = df_pts3D.index.to_list()
 orb = cv.ORB_create()
 bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
 
-target_color=np.array([208.,193.,194.])/255 #225,223,211 #208,200,200
+target_color = np.array([0.310, 0.558, 0.811])
 
 # Load .yml file
 if args.calibfile:
@@ -228,13 +229,14 @@ images = sorted(glob.glob(f'./sets/C004{2*toco}/*.jpg'), key=lambda x:[int(c) if
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
 if st_frame != 0:
     pbar.update(st_frame)
-for fname in images[st_frame:8000]: # 8886
+for fname in images[st_frame:]: # TOCO1: 8885
     img = cv.imread(fname)
     ffname = fname.split("\\")[-1][:-4]
 
     img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    img_gray = cv.GaussianBlur(img_gray, (5,5), 0) # cv.medianBlur(img_gray, 5)
-    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
+    img_gray = cv.medianBlur(img_gray, 5) # cv.GaussianBlur(img_gray, (5,5), 0) #
+    h, w = img_gray.shape
+    # thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
         
     if fname != images[st_frame]:
         # Detect new position of CODETARGETS
@@ -266,23 +268,29 @@ for fname in images[st_frame:8000]: # 8886
         pts2D_names = []
         for i in range(points_2D.shape[0]):
             npt = points_2D[i].reshape(2).astype(int)
-            wdw = 25
-            thr_patch = thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw]
+            wdw = 15
             
-            # mask_box, min_delta_e, l1, l2, de1, de = delta_E(thr_patch, target_color, 2, 1)
+            # thr_patch = thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw]
+            # contours, _ = cv.findContours(thr_patch,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             
-            contours, _ = cv.findContours(thr_patch,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            
-            if len(contours) > 1:
-                # Calculate moments
-                M = cv.moments(contours[-1])
+            # if len(contours) > 1:
+            #     # Calculate moments
+            #     M = cv.moments(contours[-1])
                 
-                # Calculate x,y
-                if M["m00"] != 0:
-                    cX = int(M["m10"] / M["m00"])
-                    cY = int(M["m01"] / M["m00"])
-                pts2D_new.append([[npt[0]-wdw+cX, npt[1]-wdw+cY]])
-                pts2D_names.append(points_2D_names[i])
+            #     # Calculate x,y
+            #     if M["m00"] != 0:
+            #         cX = int(M["m10"] / M["m00"])
+            #         cY = int(M["m01"] / M["m00"])
+            
+            if npt[0] > w or npt[1] > h:
+                asdasd = 0
+            
+            img_patch = img[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw]
+            mask_box, _ = delta_E(img_patch, target_color, sigma=2, dmax=1)
+            cXY = centroid_com(mask_box)
+            
+            pts2D_new.append([[npt[0]-wdw+cXY[0], npt[1]-wdw+cXY[1]]])
+            pts2D_names.append(points_2D_names[i])
         
         pts2D_new = np.array(pts2D_new, dtype=np.float64)
         pts3D_img = df_pts3D.loc[pts2D_names].to_numpy()
@@ -297,20 +305,18 @@ for fname in images[st_frame:8000]: # 8886
     
     pts2D_nn2 = [pts2D_new2[i] for i in range(pts2D_new2.shape[0]) if pts2D_new2[i,0,0] > 0 and pts2D_new2[i,0,1] > 0]
     pts2D_names = [df_pts3D.index.to_list()[i] for i in range(pts2D_new2.shape[0]) if pts2D_new2[i,0,0] > 0 and pts2D_new2[i,0,1] > 0]
-    pts2D_new = np.array(pts2D_nn2, dtype=np.float64) # '''
-    
-    ''' Redeterminar ubicaciones (cambiar forma en que se hace la pega) # '''
+    pts2D_nn2 = np.array(pts2D_nn2, dtype=np.float64) # '''
     
     points2D_all.append(pts2D_new)
     vecs.append(np.array([rvec, tvec]))
     ret_names.append(ffname)
     
-    if args.displaygraphs and images.index(fname) % 100 == 0:
-        displayImageWPoints(img, points_2D, name=ret_names[-1])
+    # if args.displaygraphs and images.index(fname) % 1000 == 0:
+    #     displayImageWPoints(img, points_2D, name=ret_names[-1])
     
     if args.save:            
         vid_data = {'2D_points': points2D_all, 'rt_vectors': vecs, 'frame_name': ret_names, 'last_passed_frame': images.index(fname)}
-        with open(f'./datasets/dataTOCO_vid{toco}.pkl', 'wb') as fp:
+        with open(f'./datasets/dataTOCO_vid0.pkl', 'wb') as fp:
             pickle.dump(vid_data, fp)
     
     pts2D_old = pts2D_new
@@ -324,7 +330,7 @@ if args.save:
     vid_data = {'3D_points': points_3D, '2D_points': points2D_all, 'frame_name': ret_names,
                 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img.shape[1::-1],
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
-    with open(f'./datasets/pkl-files/TOCO_vid{toco}.pkl', 'wb') as fp:
+    with open(f'./datasets/pkl-files/TOCO_vid0.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
         print(f"Dictionary saved successfully as './datasets/pkl-files/TOCO_vid{toco}.pkl'")
 
