@@ -157,31 +157,33 @@ y_vel = df_vel.loc[rms_vel].to_numpy()/np.sqrt(camera_matrix[0,0]*camera_matrix[
 # Plot curves to check correlation
 fig, ax1 = plt.subplots(figsize=(12, 7))
 
-color = 'tab:red'
+color = 'tab:blue'
 ax1.set_xlabel('frame (i)')
-ax1.set_ylabel('RMS Error amplitude (pixels)')
-ax1.plot(x_rms, color=color)
+ax1.set_ylabel('Angular velocity (degrees/s)')
+ax1.plot(y_vel, color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
-color = 'tab:blue'
+color = 'tab:red'
 ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
-ax2.set_ylabel('Angular velocity (pixels/s)')
-ax2.plot(y_vel, color=color)
+ax2.set_ylabel('RMS Error amplitude (pixels)')
+ax2.plot(x_rms, color=color)
 ax2.tick_params(axis='y', labelcolor=color)
+
 plt.title(f'Angular Velocity and RMS Error vs time (frames) ({summary})')
 fig.tight_layout()
 # plt.savefig(f'./plots/{args.file}-{args.calibfile}.jpg', bbox_inches='tight', dpi=300)
 
-# Plot difference in errors
-plt.figure(figsize=(12, 7))
-plt.plot(np.arange(len(rms_error)), rms_error, label='Calculated')
-plt.plot(np.arange(len(rms_error))[::20], rms_error[::20], label='Calculated 5%')
-plt.plot(pve[:,0], pve[:,1], label='Calibration file')
-plt.xlabel('Frames (i)')
-plt.ylabel('RMS Error (Pixels)')
-plt.legend()
-plt.title('RMS Error vs Time (frames)')
+if args.calibfile:
+    # Plot difference in errors
+    plt.figure(figsize=(12, 7))
+    plt.plot(np.arange(len(rms_error)), rms_error, label='Calculated')
+    plt.plot(np.arange(len(rms_error))[::20], rms_error[::20], label='Calculated 5%')
+    plt.plot(pve[:,0], pve[:,1], label='Calibration file')
+    plt.xlabel('Frames (i)')
+    plt.ylabel('RMS Error (Pixels)')
+    plt.legend()
+    plt.title('RMS Error vs Time (frames)')
 
 '''
 # Hacer fit al scatter para determinar relación entre velocidad angular (en grados) con error rms. # Done
