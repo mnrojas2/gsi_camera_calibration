@@ -108,14 +108,14 @@ fig, ax1 = plt.subplots()
 color = 'tab:red'
 ax1.set_xlabel('frame (i)')
 ax1.set_ylabel('RMS Error amplitude (Pixels)')
-ax1.plot(np.arange(80), rms_error[:8000:100], color=color) # rms_error.shape[0]
+ax1.plot(np.arange(800), rms_error[:8000:10], color=color) # rms_error.shape[0]
 ax1.tick_params(axis='y', labelcolor=color)
 
 color = 'tab:blue'
 ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('Angular velocity (pixels/s)')
-ax2.plot(np.arange(80), vel_list[:8000:100], color=color) # vel_list.shape[0]
+ax2.plot(np.arange(800), vel_list[:8000:10], color=color) # vel_list.shape[0]
 ax2.tick_params(axis='y', labelcolor=color)
 
 fig.tight_layout()

@@ -32,7 +32,7 @@ def main():
             os.mkdir('sets/'+args.vidname)
         
         # Start counters
-        pbar = tqdm(desc='READING FRAMES', total=total_frame_count, unit=' frames')
+        pbar = tqdm(desc='READING FRAMES', total=total_frame_count, unit=' frames', dynamic_ncols=True)
         frame_no = args.startnumber
         
         while(vidcap.isOpened()):

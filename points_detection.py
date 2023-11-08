@@ -51,7 +51,7 @@ args = parser.parse_args()
 images = glob.glob(f'./sets/{args.folder}/*.jpg')
 print(f"Searching images in ./sets/{args.folder}/")
 
-pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
 total_corners = np.zeros(2)
 max_corners_found = 0
 max_corners_frame = ''

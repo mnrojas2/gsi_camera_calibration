@@ -275,7 +275,7 @@ vecs = []      # rotation and translation vectors from reconstruction
 ###############################################################################################################################
 # Image processing
 
-pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
 if start_frame != 0:
     pbar.update(start_frame)
 for fname in images[start_frame:]:

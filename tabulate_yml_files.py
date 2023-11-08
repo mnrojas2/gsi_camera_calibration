@@ -62,7 +62,8 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
         for ii in range(len(y_hist)):
             x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
 
-        mean = sum(x_hist*y_hist)/sum(y_hist)                  
+        mean = sum(x_hist*y_hist)/sum(y_hist)
+        print(colname[i], mean)                  
         sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist) 
         
         ax = fig.add_subplot(gs[i])
@@ -154,7 +155,7 @@ def main():
         df_time = filter_dataframe(df_complete, ('Filter by time,', '-sm'))
         df_pnts = filter_dataframe(df_complete, ('Filter by time and points,', '-sm'))
         
-        with pd.ExcelWriter('results/camera_calibration.xlsx') as writer:
+        with pd.ExcelWriter('results/camera_calibration_wo_outliers.xlsx') as writer:
             df_complete.to_excel(writer, sheet_name='Summary')
             df_dist.to_excel(writer, sheet_name='Filter by distance')
             df_time.to_excel(writer, sheet_name='Filter by time')

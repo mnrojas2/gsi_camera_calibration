@@ -67,9 +67,6 @@ imgpoints = pFile['2D_points']
 ret_names = pFile['name_points']
 tgt_names = pFile['name_targets']
 
-calibfile = pFile['init_calibfile']
-vecs = pFile['rt_vectors']
-
 vel_list = []
 for i in range(len(imgpoints)):
     if i == 0:
@@ -93,13 +90,40 @@ df_vel = pd.DataFrame(data=vel_list, index=ret_names[1:], columns=['vel_ang'])
 
 #############################################################################################
 
-# Load .yml file
-print(f'Loading {args.file}-{args.calibfile}.yml')
-fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
-print(f"File '{args.file}-{args.calibfile}.yml' description:",fs.getNode("summary").string())
 
-camera_matrix = fs.getNode("camera_matrix").mat() # Aquí estaba el problema, no se había inicializado con el nombre correcto y estaba tomando el valor que venía en el pkl.
-dist_coeff = fs.getNode("dist_coeff").mat()
+if args.calibfile:
+    # Load .yml file
+    print(f'Loading {args.file}-{args.calibfile}.yml')
+    fs = cv.FileStorage(f'./results/{args.file}-{args.calibfile}.yml', cv.FILE_STORAGE_READ)
+
+    camera_matrix = fs.getNode("camera_matrix").mat() # Aquí estaba el problema, no se había inicializado con el nombre correcto y estaba tomando el valor que venía en el pkl.
+    dist_coeff = fs.getNode("dist_coeff").mat()
+    pve = fs.getNode("per_view_errors").mat()
+    summary = fs.getNode("summary").string()
+    
+    print(f"File '{args.file}-{args.calibfile}.yml' description:", summary)
+
+else:
+    # Use averaged values
+    # Camera matrix
+    fx = 2569.861833844866
+    fy = 2568.651262555803
+    cx = 1881.5969273158478
+    cy = 1087.1150791713173
+
+    camera_matrix = np.array([[fx, 0., cx],
+                            [0., fy, cy],
+                            [0., 0., 1.]], dtype = "double")
+
+    # Distortion coefficients
+    k1 = 0.019007359983931695
+    k2 = -0.04099061331944541
+    p1 = -0.00032026402966169244
+    p2 = -0.0011026758947991768
+    k3 = 0.02882744722467448
+
+    dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
+    summary = 'averaged values'
 
 #############################################################################################
 
@@ -145,16 +169,26 @@ ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('Angular velocity (pixels/s)')
 ax2.plot(y_vel, color=color)
 ax2.tick_params(axis='y', labelcolor=color)
-plt.title(f'Angular Velocity and RMS Error vs time (frames) ({fs.getNode("summary").string()})')
+plt.title(f'Angular Velocity and RMS Error vs time (frames) ({summary})')
 fig.tight_layout()
 # plt.savefig(f'./plots/{args.file}-{args.calibfile}.jpg', bbox_inches='tight', dpi=300)
+
+# Plot difference in errors
+plt.figure(figsize=(12, 7))
+plt.plot(np.arange(len(rms_error)), rms_error, label='Calculated')
+plt.plot(np.arange(len(rms_error))[::20], rms_error[::20], label='Calculated 5%')
+plt.plot(pve[:,0], pve[:,1], label='Calibration file')
+plt.xlabel('Frames (i)')
+plt.ylabel('RMS Error (Pixels)')
+plt.legend()
+plt.title('RMS Error vs Time (frames)')
 
 '''
 # Hacer fit al scatter para determinar relación entre velocidad angular (en grados) con error rms. # Done
 # Revisar que los valores estén bien (usar el valor calculado a mano de los RMS, ...
 #   probar determinando rvec y tvec usando los valores definidos de camera_matrix, dist_coeff ...
 #   para compararlo con los resultados del archivo) # Done
-# Histograma -> revisar valores, sacar outliers, encontrar valores ideales ajustados por ajuste gaussiano. # Falta
+# Histograma -> revisar valores, sacar outliers, encontrar valores ideales ajustados por ajuste gaussiano. # Done
 # Determinar error en metros de los puntos (dron) # Ni idea cómo calcularlo
 '''
 

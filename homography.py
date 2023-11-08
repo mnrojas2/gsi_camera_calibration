@@ -170,7 +170,7 @@ objpoints = [] # 3d points in real world space
 imgpoints = [] # 2d points in image plane.
 ret_names = [] # names of every frame for tabulation
 
-pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
 for fname in images:
     # Read image
     img0 = cv.imread(fname)

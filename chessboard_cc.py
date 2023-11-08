@@ -40,7 +40,7 @@ def main():
     ret_detect = [0,0]
     ret_names = []
 
-    pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames')
+    pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
     for fname in images:
         img = cv.imread(fname)
     
