@@ -125,7 +125,7 @@ fig.tight_layout()
 
 # function y_vel = m * x_error + b
 m = 3.51763
-b = -18 # 2.16123
+b = 0 # 2.16123
 
 # function inv x_error = minv * y_vel + binv
 m_inv = 1/m
@@ -135,13 +135,24 @@ rgr = 8000
 x_rms = rms_error[:rgr]
 y_vel = (vel_list/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi)[:rgr]
 
+x_rms_fromvel = m_inv * y_vel + b_inv
+y_vel_fromrms = m * x_rms + b
 
 plt.figure(figsize=(12, 7))
-plt.scatter(x_rms, y_vel) # to convert to degrees/s)
-# plt.plot(m*np.arange(5,7,10)+b, color='k')
+plt.scatter(x_rms, y_vel, label='measured data')
+plt.plot(x_rms_fromvel, y_vel, color='r', label='y_vel data fit')
+plt.plot(x_rms, y_vel_fromrms, color='g', label='x_rms data fit')
 plt.xlabel('RMS Error amplitude (Pixels)')
 plt.ylabel('Angular velocity (degrees/s)')
+plt.legend()
 plt.title('Angular velocity vs RMS Error')
+plt.tight_layout()
+
+plt.figure(figsize=(12, 7))
+plt.hist(y_vel, bins=20, label='y_vel')
+plt.hist(x_rms*m+b, bins=20, label='x_rms*m+b')
+plt.title('Histograms of Angular velocity and RMS Error')
+plt.legend()
 plt.tight_layout()
 plt.show()
 

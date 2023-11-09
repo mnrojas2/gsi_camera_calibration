@@ -51,36 +51,36 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
     cols = cols if x_data.shape[1] != 1 else 1
     rows = int(np.ceil(x_data.shape[1] / cols))
     gs = gridspec.GridSpec(rows, cols)
-    fig = plt.figure()
+    fig = plt.figure(figsize=(12, 7))
     
     # Generate histograms and add to subplots
     for i in range(x_data.shape[1]):
-        hist, bin_edges = np.histogram(x_data[:,i])
-        y_hist = hist/sum(hist)
-        x_hist = np.zeros((len(y_hist)),dtype=float) 
-        
-        for ii in range(len(y_hist)):
-            x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
-
-        mean = sum(x_hist*y_hist)/sum(y_hist)
-        print(colname[i], mean)                  
-        sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist) 
-        
         ax = fig.add_subplot(gs[i])
         weights = np.ones_like(x_data[:,i]) / len(x_data[:,i])
         ax.hist(x_data[:,i], weights=weights)
         
         # Calculate Gaussian least-square fitting process
         if gauss_c:
+            hist, bin_edges = np.histogram(x_data[:,i])
+            y_hist = hist/sum(hist)
+            x_hist = np.zeros((len(y_hist)),dtype=float) 
+            
+            for ii in range(len(y_hist)):
+                x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
+
+            mean = sum(x_hist*y_hist)/sum(y_hist)
+            print(colname[i], mean)                  
+            sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist)
             param_optimised, _ = curve_fit(gaus,x_hist,y_hist,p0=[max(y_hist),mean,sigma],maxfev=5000)
             # Plotting gaussian curve
             x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),500)
-            ax.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit')
+            ax.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit') # '''
         
         if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
             ax.set_xlabel('Pixels')
         ax.set_ylabel("Probability")
-        ax.set_title(f"'{idx_str[:-1]}' - '{colname[i]}'")
+        ax.set_title(colname[i])
+    fig.suptitle('All' if idx_str == ',' else idx_str)
     fig.tight_layout()
     
 def filter_dataframe(dataframe, *args):

@@ -185,15 +185,6 @@ if args.calibfile:
     plt.legend()
     plt.title('RMS Error vs Time (frames)')
 
-'''
-# Hacer fit al scatter para determinar relación entre velocidad angular (en grados) con error rms. # Done
-# Revisar que los valores estén bien (usar el valor calculado a mano de los RMS, ...
-#   probar determinando rvec y tvec usando los valores definidos de camera_matrix, dist_coeff ...
-#   para compararlo con los resultados del archivo) # Done
-# Histograma -> revisar valores, sacar outliers, encontrar valores ideales ajustados por ajuste gaussiano. # Done
-# Determinar error en metros de los puntos (dron) # Ni idea cómo calcularlo
-'''
-
 # Linear regression
 model = LinearRegression()
 model.fit(x_rms, y_vel)
@@ -208,6 +199,14 @@ plt.plot(x_rms, y_pred, color='k')
 plt.xlabel('RMS Error (pixels)')
 plt.ylabel('Angular velocity (degrees/s)') # (degrees/s)')
 plt.title('Angular velocity vs RMS Error')
+plt.tight_layout()
+
+
+plt.figure(figsize=(12, 7))
+plt.hist(y_vel, bins=20, label='y_vel')
+plt.hist(x_rms*model.coef_+model.intercept_, bins=20, label='x_rms*m')
+plt.title('Histograms of Angular velocity and RMS Error')
+plt.legend()
 plt.tight_layout()
 plt.show() # '''
 
