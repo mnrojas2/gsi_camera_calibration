@@ -170,7 +170,7 @@ ax2.set_ylabel('RMS Error amplitude (pixels)')
 ax2.plot(x_rms, color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
-plt.title(f'Angular Velocity and RMS Error vs time (frames) ({summary})')
+plt.title(f'Angular Velocity and RMS Error vs time (frames)')
 fig.tight_layout()
 # plt.savefig(f'./plots/{args.file}-{args.calibfile}.jpg', bbox_inches='tight', dpi=300)
 
@@ -204,7 +204,7 @@ plt.tight_layout()
 
 plt.figure(figsize=(12, 7))
 plt.hist(y_vel, bins=20, label='y_vel')
-plt.hist(x_rms*model.coef_+model.intercept_, bins=20, label='x_rms*m')
+plt.hist(x_rms*model.coef_+model.intercept_, bins=20, label='x_rms*m+b')
 plt.title('Histograms of Angular velocity and RMS Error')
 plt.legend()
 plt.tight_layout()

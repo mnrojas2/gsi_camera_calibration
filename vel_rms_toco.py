@@ -109,14 +109,14 @@ fig, ax1 = plt.subplots(figsize=(12, 7))
 color = 'tab:blue'
 ax1.set_xlabel('frame (i)')
 ax1.set_ylabel('Angular velocity (degrees/s)')
-ax1.plot(vel_list/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi, color=color) # vel_list.shape[0]
+ax1.plot(vel_list[:8000]/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi, color=color) # vel_list.shape[0]
 ax1.tick_params(axis='y', labelcolor=color)
 
 color = 'tab:red'
 ax2 = ax1.twinx()
 ax2.set_xlabel('frame (i)')
 ax2.set_ylabel('RMS Error amplitude (Pixels)')
-ax2.plot(rms_error, color=color) # rms_error.shape[0]
+ax2.plot(rms_error[:8000], color=color) # rms_error.shape[0]
 ax2.tick_params(axis='y', labelcolor=color)
 
 
@@ -124,8 +124,8 @@ plt.title('Angular Velocity and RMS Error vs time (frames)')
 fig.tight_layout()
 
 # function y_vel = m * x_error + b
-m = 3.51763
-b = 0 # 2.16123
+m = 3.530531271 # 3.51763
+b = 2.749075414 # 2.16123
 
 # function inv x_error = minv * y_vel + binv
 m_inv = 1/m
@@ -140,8 +140,8 @@ y_vel_fromrms = m * x_rms + b
 
 plt.figure(figsize=(12, 7))
 plt.scatter(x_rms, y_vel, label='measured data')
-plt.plot(x_rms_fromvel, y_vel, color='r', label='y_vel data fit')
-plt.plot(x_rms, y_vel_fromrms, color='g', label='x_rms data fit')
+plt.plot(x_rms_fromvel, y_vel, color='r', label='y_vel data fitting x_rms')
+plt.plot(x_rms, y_vel_fromrms, color='g', label='x_rms data fitting y_vel')
 plt.xlabel('RMS Error amplitude (Pixels)')
 plt.ylabel('Angular velocity (degrees/s)')
 plt.legend()

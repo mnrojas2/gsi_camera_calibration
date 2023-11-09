@@ -68,13 +68,13 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
             for ii in range(len(y_hist)):
                 x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
 
-            mean = sum(x_hist*y_hist)/sum(y_hist)
-            print(colname[i], mean)                  
+            mean = sum(x_hist*y_hist)/sum(y_hist)                 
             sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist)
+            
             param_optimised, _ = curve_fit(gaus,x_hist,y_hist,p0=[max(y_hist),mean,sigma],maxfev=5000)
-            # Plotting gaussian curve
+
             x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),500)
-            ax.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit') # '''
+            ax.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit')
         
         if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
             ax.set_xlabel('Pixels')
@@ -82,6 +82,52 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
         ax.set_title(colname[i])
     fig.suptitle('All' if idx_str == ',' else idx_str)
     fig.tight_layout()
+    
+def df_histogram_v2(dataframe, colname, *args, gauss_c=False):
+    for arg in args:
+        idx_str = arg[0]
+        idx_type = arg[1]
+        
+        # Find rows if a particular str appears in summary or index
+        if idx_type == 'index':
+            df_idx = dataframe.index.str.contains(idx_str, na=False)
+        elif idx_type == 'summary':
+            df_idx = dataframe.summary.str.contains(idx_str, na=False).to_numpy()
+
+        # If there are more than just one arg, then add them bitwise
+        if arg == args[0]:
+            df_idx_s = df_idx
+        else:
+            df_idx_s = df_idx_s & df_idx
+    
+    # Filter the original dataframe and calculate mean and std
+    new_df = dataframe[df_idx_s][colname]
+    x_data = new_df.to_numpy(dtype='float32')
+    
+    # Define subplots positions
+    cols = 3 if x_data.shape[1] >= 5 or x_data.shape[1] == 3 else 2 
+    cols = cols if x_data.shape[1] != 1 else 1
+    rows = int(np.ceil(x_data.shape[1] / cols))
+    gs = gridspec.GridSpec(rows, cols)
+    
+    rgr = 4
+    for j in range(rgr):
+        fig = plt.figure(figsize=(12, 7))
+        
+        # Generate histograms and add to subplots
+        for i in range(x_data.shape[1]):
+            ax = fig.add_subplot(gs[i])
+            _, bins, _ = ax.hist(x_data[:,i])
+            
+            vgr = int(x_data.shape[0]/rgr)
+            ax.hist(x_data[vgr*j:vgr*(j+1),i], bins=bins)
+            
+            if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
+                ax.set_xlabel('Pixels')
+            ax.set_ylabel("Probability")
+            ax.set_title(colname[i])
+        fig.suptitle('All' if idx_str == ',' else idx_str)
+        fig.tight_layout()
     
 def filter_dataframe(dataframe, *args):
     for arg in args:
@@ -145,7 +191,7 @@ def main():
     df_ccd_2 = pd.concat([df_ccd, df_dcb])
     df_complete = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
     
-    df_histogram(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True)
+    df_histogram_v2(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True)
     plt.show()
     
     if args.excel:
