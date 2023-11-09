@@ -70,13 +70,18 @@ def scatterPlot(*args, name='Image'):
     plt.show()
     
 
-def delta_E(image_1_rgb, color_target, sigma, dmax):
+def delta_E(image_1_rgb, color_target, sigma, dmax, p2Dn):
     # color filter
-    Lab1 = cv.cvtColor((image_1_rgb/255).astype('float32'), cv.COLOR_BGR2LAB)
+    Lab1 = cv.cvtColor((image_1_rgb/255).astype(np.float32), cv.COLOR_BGR2LAB)
+    
+    # color_target = np.array([79.05, 142.29, 206.81])/255 # 79.05, 142.29, 206.81
     Lab2 = skc.rgb2lab(color_target.reshape(1, 1, 3))
 
     deltae1 = skc.deltaE_ciede2000(Lab1, Lab2)
     deltae = cv.GaussianBlur(deltae1, (0,0), 3)
+
+    if p2Dn == 'pt8':
+        displayImage(cv.normalize(deltae, None, 0, 1.0, cv.NORM_MINMAX, dtype=cv.CV_32F))
 
     minDeltaE = np.min(deltae)
     
@@ -226,16 +231,19 @@ if args.displaygraphs:
 print(f"Searching images in ./sets/C004{2*toco}/")
 images = sorted(glob.glob(f'./sets/C004{2*toco}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
+##############
+C = []
+##############
+
 pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
 if st_frame != 0:
     pbar.update(st_frame)
-for fname in images[st_frame:]: # TOCO1: 8885
+for fname in images[st_frame:]:
     img = cv.imread(fname)
     ffname = fname.split("\\")[-1][:-4]
 
     img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     img_gray = cv.medianBlur(img_gray, 5) # cv.GaussianBlur(img_gray, (5,5), 0) #
-    h, w = img_gray.shape
     # thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 31, -32)
         
     if fname != images[st_frame]:
@@ -263,32 +271,20 @@ for fname in images[st_frame:]: # TOCO1: 8885
         points_2D = np.array(pts2D_nn, dtype=np.float64)
         points_2D_names = pts2D_names
 
-        # entrar al if esta parte
+        # Fix position if points are slightly shifted
         pts2D_new = []
         pts2D_names = []
         for i in range(points_2D.shape[0]):
             npt = points_2D[i].reshape(2).astype(int)
             wdw = 15
-            
-            # thr_patch = thr[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw]
-            # contours, _ = cv.findContours(thr_patch,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            
-            # if len(contours) > 1:
-            #     # Calculate moments
-            #     M = cv.moments(contours[-1])
                 
-            #     # Calculate x,y
-            #     if M["m00"] != 0:
-            #         cX = int(M["m10"] / M["m00"])
-            #         cY = int(M["m01"] / M["m00"])
-            
-            if npt[0] > w or npt[1] > h:
-                asdasd = 0
-            
             img_patch = img[npt[1]-wdw:npt[1]+wdw,npt[0]-wdw:npt[0]+wdw]
-            mask_box, _ = delta_E(img_patch, target_color, sigma=2, dmax=1)
+            mask_box, _ = delta_E(img_patch, target_color, sigma=2, dmax=1, p2Dn=points_2D_names[i])
             cXY = centroid_com(mask_box)
             
+            # if points_2D_names[i] == 'pt8':
+            #     displayImage(cv.normalize(mask_box, None, 0, 1.0, cv.NORM_MINMAX, dtype=cv.CV_32F))
+        
             pts2D_new.append([[npt[0]-wdw+cXY[0], npt[1]-wdw+cXY[1]]])
             pts2D_names.append(points_2D_names[i])
         
@@ -311,8 +307,8 @@ for fname in images[st_frame:]: # TOCO1: 8885
     vecs.append(np.array([rvec, tvec]))
     ret_names.append(ffname)
     
-    # if args.displaygraphs and images.index(fname) % 1000 == 0:
-    #     displayImageWPoints(img, points_2D, name=ret_names[-1])
+    if args.displaygraphs and images.index(fname) % 10 == 0:
+        displayImageWPoints(img, points_2D, name=ret_names[-1])
     
     if args.save:            
         vid_data = {'2D_points': points2D_all, 'rt_vectors': vecs, 'frame_name': ret_names, 'last_passed_frame': images.index(fname)}

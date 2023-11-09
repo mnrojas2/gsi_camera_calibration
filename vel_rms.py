@@ -206,7 +206,7 @@ plt.figure(figsize=(12, 7))
 plt.scatter(x_rms, y_vel)
 plt.plot(x_rms, y_pred, color='k')
 plt.xlabel('RMS Error (pixels)')
-plt.ylabel('Angular velocity (pixels/s)') # (degrees/s)')
+plt.ylabel('Angular velocity (degrees/s)') # (degrees/s)')
 plt.title('Angular velocity vs RMS Error')
 plt.tight_layout()
 plt.show() # '''

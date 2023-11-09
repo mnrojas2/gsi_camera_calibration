@@ -138,7 +138,7 @@ y_vel = (vel_list/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi)[:r
 
 plt.figure(figsize=(12, 7))
 plt.scatter(x_rms, y_vel) # to convert to degrees/s)
-plt.plot(m*np.arange(5,7,10)+b, color='k')
+# plt.plot(m*np.arange(5,7,10)+b, color='k')
 plt.xlabel('RMS Error amplitude (Pixels)')
 plt.ylabel('Angular velocity (degrees/s)')
 plt.title('Angular velocity vs RMS Error')
