@@ -5,6 +5,9 @@ import numpy as np
 import cv2 as cv
 import pickle
 import random
+import glob
+import re
+import datetime
 from scipy.spatial.transform import Rotation as R
 
 # Initialize parser
@@ -88,36 +91,79 @@ flags_model = cv.CALIB_USE_INTRINSIC_GUESS
 args = parser.parse_args()
 
 # Load pickle file
-print(f'Loading {args.file}.pkl')
-pFile = pickle.load(open(f"./datasets/pkl-files/{args.file}.pkl","rb"))
+if args.file == 'all':
+    print(f'Loading all .pkl files')
+    pkl_list = ['C42Finf_vidpoints', 'C43Finf_vidpoints', 'C46Finf_vidpoints', 'C50Finf_vidpoints', 'C67Finf_vidpoints']
+    # pkl_list = sorted(glob.glob(f'./datasets/pkl-files/*.pkl'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    # pkl_list = [item.split('\\')[-1] for item in pkl_list]
+else:
+    print(f'Loading {args.file}.pkl')
+    pkl_list = [args.file]
 
-# Unpack lists
-objpoints = pFile['3D_points']
-imgpoints = pFile['2D_points']
-ret_names = pFile['name_points']
+# Define what filters are active or not and put them in the summary.
+summary = ''
+date_today = str(datetime.datetime.now())[5:].split('.')[0].replace('-', '').replace(':', '').replace(' ', '_')
 
-camera_matrix = pFile['init_mtx']
-dist_coeff = pFile['init_dist']
-img_shape = pFile['img_shape']
-
-calibfile = pFile['init_calibfile']
-vecs = pFile['rt_vectors']
-
-# Filter lists if required
 if args.filterpnts:
     print(f'Filter by points enabled')
-    objpoints, imgpoints = split_by_points(objpoints, imgpoints, t_split=args.split, shift=args.shift)
+    summary += f'Filter by points, sp={args.split}, sf={args.shift}. '
 
 if args.filterdist:
     print(f'Filter by distance enabled')
-    objpoints, imgpoints, ret_names = split_by_distance(objpoints, imgpoints, ret_names, vecs, min_dist=args.mindist, dist_shift=args.distshift)
+    summary += f'Filter by distance, md={args.mindist}, ds={args.distshift}. '
     
 if args.filtertime:
     print(f'Filter by time enabled')
-    objpoints = objpoints[args.residue::args.reduction]
-    imgpoints = imgpoints[args.residue::args.reduction]
-    ret_names = ret_names[args.residue::args.reduction]
+    summary += f'Filter by time, rd={args.reduction}, rs={args.residue}. '
     
+summary = summary[:-1]
+
+# Open the .pkl file(s) and filter the images/points. If there are more than one, split some images and merge the result in one list.
+obj_list = []
+img_list = []
+ret_list = []
+
+camera_matrix = False
+dist_coeff = False
+img_shape = False
+calibfile = False
+
+for item in pkl_list:
+    pFile = pickle.load(open(f"./datasets/pkl-files/{item}.pkl","rb"))
+
+    # Unpack lists
+    objpoints = pFile['3D_points']
+    imgpoints = pFile['2D_points']
+    ret_names = pFile['name_points']
+    ret_names = [item[:3]+name if len(pkl_list) > 1 else name for name in ret_names]
+
+    camera_matrix = pFile['init_mtx']
+    dist_coeff = pFile['init_dist']
+    img_shape = pFile['img_shape']
+
+    calibfile = pFile['init_calibfile']
+    vecs = pFile['rt_vectors']
+
+    # Filter lists if required
+    if args.filterpnts:
+        objpoints, imgpoints = split_by_points(objpoints, imgpoints, t_split=args.split, shift=args.shift)
+
+    if args.filterdist:
+        objpoints, imgpoints, ret_names = split_by_distance(objpoints, imgpoints, ret_names, vecs, min_dist=args.mindist, dist_shift=args.distshift)
+        
+    if args.filtertime:
+        objpoints = objpoints[args.residue::args.reduction]
+        imgpoints = imgpoints[args.residue::args.reduction]
+        ret_names = ret_names[args.residue::args.reduction]
+        
+    obj_list += objpoints[::len(pkl_list)]
+    img_list += imgpoints[::len(pkl_list)]
+    ret_list += ret_names[::len(pkl_list)]
+
+objpoints = obj_list
+imgpoints = img_list
+ret_names = ret_list
+
 print(f'Length of lists for calibration: {len(ret_names)}')
 
 # Camera Calibration
@@ -135,8 +181,11 @@ if args.extended:
     print('Error per frame:\n', pVE_extended)
 
 if args.save:
-    summary = input("Insert comments: ")
-    fs = cv.FileStorage('./results/'+args.file[:-14]+'.yml', cv.FILE_STORAGE_WRITE)
+    print(summary)
+    if args.file == 'all':
+        fs = cv.FileStorage('./results/Call-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
+    else:
+        fs = cv.FileStorage('./results/'+args.file[:-14]+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
     fs.write('init_cam_calib', calibfile)
     fs.write('camera_matrix', mtx)
@@ -145,7 +194,7 @@ if args.save:
     fs.write('tvec', np.array(tvecs))
     
     if args.extended:
-        pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
+        pVElist = np.array((np.array([int(x[8:]) if len(pkl_list) > 1 else int(x[5:]) for x in ret_names]), pVE[:,0])).T
         fs.write('std_intrinsics', stdInt)
         fs.write('std_extrinsics', stdExt)
         fs.write('per_view_errors', pVElist)

@@ -11,6 +11,7 @@ import re
 import copy
 import pickle
 import random
+import datetime
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from scipy.spatial import distance
@@ -439,22 +440,33 @@ if args.save:
 # When everything done, release the frames
 cv.destroyAllWindows()
 
+###########################################################################################################################
+# Filter data and calibration
+
 if args.calibenable:
+    # Define what filters are active or not and put them in the summary.
+    summary = ''
+    date_today = str(datetime.datetime.now())[5:].split('.')[0].replace('-', '').replace(':', '').replace(' ', '_')
+    
     # Filter lists if required
     if args.filterpnts:
         print(f'Filter by points enabled')
         objpoints, imgpoints = split_by_points(objpoints, imgpoints, t_split=args.split, shift=args.shift)
+        summary += f'Filter by points, sp={args.split}, sf={args.shift}. '
 
     if args.filterdist:
         print(f'Filter by distance enabled')
         objpoints, imgpoints, ret_names = split_by_distance(objpoints, imgpoints, ret_names, vecs, min_dist=args.mindist, dist_shift=args.distshift)
+        summary += f'Filter by distance, md={args.mindist}, ds={args.distshift}. '
         
     if args.filtertime:
         print(f'Filter by time enabled')
         objpoints = objpoints[args.residue::args.reduction]
         imgpoints = imgpoints[args.residue::args.reduction]
         ret_names = ret_names[args.residue::args.reduction]
+        summary += f'Filter by time, rd={args.reduction}, rs={args.residue}. '
         
+    summary = summary[:-1]
     print(f'Length of lists for calibration: {len(ret_names)}')
     
     # Camera Calibration
@@ -472,8 +484,8 @@ if args.calibenable:
         print('Error per frame:\n', pVE_extended)
 
     if args.calibsave:
-        summary = input("Insert comments: ")
-        fs = cv.FileStorage('./results/'+args.folder[:-4]+'.yml', cv.FILE_STORAGE_WRITE)
+        print(summary)
+        fs = cv.FileStorage('./results/'+args.folder[:-4]+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
         fs.write('summary', summary)
         fs.write('init_cam_calib', args.calibfile)
         fs.write('camera_matrix', mtx)

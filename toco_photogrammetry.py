@@ -4,7 +4,6 @@ import os
 import re
 import copy
 import glob
-import json
 import pickle
 import argparse
 import numpy as np

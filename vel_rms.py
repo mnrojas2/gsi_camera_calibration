@@ -216,5 +216,3 @@ plt.show() # '''
 # hacer más calibraciones guardando rvec y tvec
 # usar esos rvec y tvec para hacer reproyeccion de puntos
 # calcular error rms promedio de la imagen
-
-
