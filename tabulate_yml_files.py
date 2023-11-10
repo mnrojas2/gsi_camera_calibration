@@ -6,20 +6,18 @@ import glob
 import re
 import pandas as pd
 import numpy as np
+import scipy
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
-from scipy.optimize import curve_fit
+
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and generates histograms and exports data to Excel.')
+parser.add_argument('-in', '--folder', type=str, metavar='folder', default='', help='Name of the folder/directory containing the video. Folder must be inside ./results/ folder.')
 parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Exports data to .xlsx file.')
 
 
-def gaus(X,C,X_mean,sigma):
-    # Calculate the Gaussian PDF values given Gaussian parameters and random variable X
-    return C*np.exp(-(X-X_mean)**2/(2*sigma**2))
-
-def df_histogram(dataframe, colname, *args, gauss_c=False):
+def df_histogram(dataframe, colname, *args, gauss_c=False, save_values=False):
     for arg in args:
         idx_str = arg[0]
         idx_type = arg[1]
@@ -52,82 +50,33 @@ def df_histogram(dataframe, colname, *args, gauss_c=False):
     rows = int(np.ceil(x_data.shape[1] / cols))
     gs = gridspec.GridSpec(rows, cols)
     fig = plt.figure(figsize=(12, 7))
+    fig.suptitle('Histograms for all coefficients using all calibration results' if idx_str == ',' else idx_str)
     
     # Generate histograms and add to subplots
+    dict_coeff = {}
     for i in range(x_data.shape[1]):
         ax = fig.add_subplot(gs[i])
         weights = np.ones_like(x_data[:,i]) / len(x_data[:,i])
-        ax.hist(x_data[:,i], weights=weights)
+        _, bins, _ = ax.hist(x_data[:,i], weights=weights, density=1)
         
         # Calculate Gaussian least-square fitting process
         if gauss_c:
-            hist, bin_edges = np.histogram(x_data[:,i])
-            y_hist = hist/sum(hist)
-            x_hist = np.zeros((len(y_hist)),dtype=float) 
+            mu, sigma = scipy.stats.norm.fit(x_data[:,i])
+            best_fit_line = scipy.stats.norm.pdf(bins, mu, sigma)
+            ax.plot(bins, best_fit_line, color='r', label='Gaussian fit')
             
-            for ii in range(len(y_hist)):
-                x_hist[ii] = (bin_edges[ii+1]+bin_edges[ii])/2
-
-            mean = sum(x_hist*y_hist)/sum(y_hist)                 
-            sigma = sum(y_hist*(x_hist-mean)**2)/sum(y_hist)
-            
-            param_optimised, _ = curve_fit(gaus,x_hist,y_hist,p0=[max(y_hist),mean,sigma],maxfev=5000)
-
-            x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),500)
-            ax.plot(x_hist_2,gaus(x_hist_2,*param_optimised),'r.:',label='Gaussian fit')
+            if save_values:
+                dict_coeff[colname[i]] = {'mean': mu, 'sigma': sigma}
         
         if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
             ax.set_xlabel('Pixels')
-        ax.set_ylabel("Probability")
-        ax.set_title(colname[i])
-    fig.suptitle('All' if idx_str == ',' else idx_str)
+        ax.set_ylabel("Frequency")
+        ax.set_title(f'Coefficient {colname[i]}')
     fig.tight_layout()
-    
-def df_histogram_v2(dataframe, colname, *args, gauss_c=False):
-    for arg in args:
-        idx_str = arg[0]
-        idx_type = arg[1]
-        
-        # Find rows if a particular str appears in summary or index
-        if idx_type == 'index':
-            df_idx = dataframe.index.str.contains(idx_str, na=False)
-        elif idx_type == 'summary':
-            df_idx = dataframe.summary.str.contains(idx_str, na=False).to_numpy()
 
-        # If there are more than just one arg, then add them bitwise
-        if arg == args[0]:
-            df_idx_s = df_idx
-        else:
-            df_idx_s = df_idx_s & df_idx
-    
-    # Filter the original dataframe and calculate mean and std
-    new_df = dataframe[df_idx_s][colname]
-    x_data = new_df.to_numpy(dtype='float32')
-    
-    # Define subplots positions
-    cols = 3 if x_data.shape[1] >= 5 or x_data.shape[1] == 3 else 2 
-    cols = cols if x_data.shape[1] != 1 else 1
-    rows = int(np.ceil(x_data.shape[1] / cols))
-    gs = gridspec.GridSpec(rows, cols)
-    
-    rgr = 4
-    for j in range(rgr):
-        fig = plt.figure(figsize=(12, 7))
-        
-        # Generate histograms and add to subplots
-        for i in range(x_data.shape[1]):
-            ax = fig.add_subplot(gs[i])
-            _, bins, _ = ax.hist(x_data[:,i])
-            
-            vgr = int(x_data.shape[0]/rgr)
-            ax.hist(x_data[vgr*j:vgr*(j+1),i], bins=bins)
-            
-            if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
-                ax.set_xlabel('Pixels')
-            ax.set_ylabel("Probability")
-            ax.set_title(colname[i])
-        fig.suptitle('All' if idx_str == ',' else idx_str)
-        fig.tight_layout()
+    if gauss_c and save_values:
+        df_coeff = pd.DataFrame.from_dict(dict_coeff, orient='index')
+        return df_coeff
     
 def filter_dataframe(dataframe, *args):
     for arg in args:
@@ -153,7 +102,11 @@ def filter_dataframe(dataframe, *args):
 # Main
 def main():
     args = parser.parse_args()
-    calibrationFiles = sorted(glob.glob('./results/*.yml'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    if args.folder:
+        dir = f'./results/{args.folder}/*.yml'
+    else:
+        dir = './results/*.yml'
+    calibrationFiles = sorted(glob.glob(dir), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
     cc_data = {}
     cc_summary = {}
@@ -191,7 +144,8 @@ def main():
     df_ccd_2 = pd.concat([df_ccd, df_dcb])
     df_complete = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
     
-    df_histogram_v2(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True)
+    hist_coeffs = df_histogram(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True, save_values=True)
+    print(hist_coeffs)
     plt.show()
     
     if args.excel:

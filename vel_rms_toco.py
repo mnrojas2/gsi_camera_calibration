@@ -108,7 +108,7 @@ fig, ax1 = plt.subplots(figsize=(12, 7))
 
 color = 'tab:blue'
 ax1.set_xlabel('frame (i)')
-ax1.set_ylabel('Angular velocity (degrees/s)')
+ax1.set_ylabel('Angular speed (degrees/s)')
 ax1.plot(vel_list[:8000]/np.sqrt(camera_matrix[0,0]*camera_matrix[1,1]) * 180/np.pi, color=color) # vel_list.shape[0]
 ax1.tick_params(axis='y', labelcolor=color)
 
@@ -120,7 +120,7 @@ ax2.plot(rms_error[:8000], color=color) # rms_error.shape[0]
 ax2.tick_params(axis='y', labelcolor=color)
 
 
-plt.title('Angular Velocity and RMS Error vs time (frames)')
+plt.title('Angular speed and RMS Error vs time (frames)')
 fig.tight_layout()
 
 # function y_vel = m * x_error + b
@@ -143,15 +143,15 @@ plt.scatter(x_rms, y_vel, label='measured data')
 plt.plot(x_rms_fromvel, y_vel, color='r', label='y_vel data fitting x_rms')
 plt.plot(x_rms, y_vel_fromrms, color='g', label='x_rms data fitting y_vel')
 plt.xlabel('RMS Error amplitude (Pixels)')
-plt.ylabel('Angular velocity (degrees/s)')
+plt.ylabel('Angular speed (degrees/s)')
 plt.legend()
-plt.title('Angular velocity vs RMS Error')
+plt.title('Angular speed vs RMS Error')
 plt.tight_layout()
 
 plt.figure(figsize=(12, 7))
 plt.hist(y_vel, bins=20, label='y_vel')
 plt.hist(x_rms*m+b, bins=20, label='x_rms*m+b')
-plt.title('Histograms of Angular velocity and RMS Error')
+plt.title('Histograms of Angular speed and RMS Error')
 plt.legend()
 plt.tight_layout()
 plt.show()

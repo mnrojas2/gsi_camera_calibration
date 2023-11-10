@@ -17,11 +17,11 @@ parser.add_argument('-sn', '--startnumber', type=int, default=0, help="Number as
 def main():
     # Take all arguments from terminal
     args = parser.parse_args()
-    print(f'Getting frames from ./videos/{args.origin_folder}/{args.vidname}.mp4')
+    print(f'Getting frames from ./videos/{args.folder}/{args.vidname}.mp4')
     
     try:
         # Start the video to take the necessary frames
-        vidcap = cv.VideoCapture('videos/'+args.origin_folder+'/'+args.vidname+'.mp4')
+        vidcap = cv.VideoCapture('videos/'+args.folder+'/'+args.vidname+'.mp4')
         total_frame_count = int(vidcap.get(cv.CAP_PROP_FRAME_COUNT))
         if total_frame_count == 0:
             # Since cv.VideoCapture can't force errors when no video is found, we do it manually.
@@ -48,6 +48,6 @@ def main():
             pbar.update(1)
         vidcap.release()
     except:
-        print(f'No video named {args.vidname}.mp4 was found in ./videos/{args.origin_folder}/')
+        print(f'No video named {args.vidname}.mp4 was found in ./videos/{args.folder}/')
 
 if __name__ == '__main__': main()
