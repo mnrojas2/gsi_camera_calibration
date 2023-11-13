@@ -57,7 +57,12 @@ def df_histogram(dataframe, colname, *args, gauss_c=False, save_values=False):
     for i in range(x_data.shape[1]):
         ax = fig.add_subplot(gs[i])
         weights = np.ones_like(x_data[:,i]) / len(x_data[:,i])
-        _, bins, _ = ax.hist(x_data[:,i], weights=weights, density=1)
+        _, bins, _ = ax.hist(x_data[:,i], weights=weights, density=1, alpha=1)
+        
+        # _, bins = np.histogram(x_data[:,i])
+        # for j in range(6):
+        #    ax.hist(x_data[j*28:(j+1)*28,i], bins=bins, density=1, stacked=1, alpha=0.5)
+        # gauss_c = False
         
         # Calculate Gaussian least-square fitting process
         if gauss_c:
@@ -66,7 +71,7 @@ def df_histogram(dataframe, colname, *args, gauss_c=False, save_values=False):
             ax.plot(bins, best_fit_line, color='r', label='Gaussian fit')
             
             if save_values:
-                dict_coeff[colname[i]] = {'mean': mu, 'sigma': sigma}
+                dict_coeff[colname[i]] = {'mu': mu, 'sigma': sigma}
         
         if colname[i] not in ['k1', 'k2', 'p1', 'p2', 'k3']:
             ax.set_xlabel('Pixels')

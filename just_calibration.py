@@ -13,6 +13,7 @@ from scipy.spatial.transform import Rotation as R
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
 parser.add_argument('file', type=str, help='Name of the file containing data (*pkl).')
+parser.add_argument('-av', '--averagevalues', action='store_true', default=False, help="Uses averaged values (local) for 'camera_matrix' and 'dist_coeff'.")
 parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 parser.add_argument('-fd', '--filterdist', action='store_true', default=False, help='Enables filter by distance of camera position.')
@@ -163,6 +164,28 @@ for item in pkl_list:
 objpoints = obj_list
 imgpoints = img_list
 ret_names = ret_list
+
+if args.averagevalues:
+    print('Use of averaged values enabled')
+    # Use averaged values
+    # Camera matrix
+    fx = 2569.6059570312500
+    fy = 2568.5849609375000
+    cx = 1881.5654296875000
+    cy = 1087.1353759765625
+    
+    camera_matrix = np.array([[fx, 0., cx],
+                            [0., fy, cy],
+                            [0., 0., 1.]], dtype = "double")
+
+    # Distortion coefficients
+    k1 = 0.019473474472761
+    k2 = -0.041976135224104
+    p1 = -0.000272782373941
+    p2 = -0.001082847476937
+    k3 = 0.030603425577283
+
+    dist_coeff = np.array(([k1], [k2], [p1], [p2], [k3]))
 
 print(f'Length of lists for calibration: {len(ret_names)}')
 
