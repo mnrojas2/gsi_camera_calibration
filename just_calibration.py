@@ -156,14 +156,16 @@ for item in pkl_list:
         objpoints = objpoints[args.residue::args.reduction]
         imgpoints = imgpoints[args.residue::args.reduction]
         ret_names = ret_names[args.residue::args.reduction]
-        
-    obj_list += objpoints[::len(pkl_list)]
-    img_list += imgpoints[::len(pkl_list)]
-    ret_list += ret_names[::len(pkl_list)]
+    
+    sft = 0
+    obj_list += objpoints[sft::len(pkl_list)]
+    img_list += imgpoints[sft::len(pkl_list)]
+    ret_list += ret_names[sft::len(pkl_list)]
 
 objpoints = obj_list
 imgpoints = img_list
 ret_names = ret_list
+summary += f' Vidsft={sft}.'
 
 if args.averagevalues:
     print('Use of averaged values enabled')
