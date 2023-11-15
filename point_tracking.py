@@ -18,7 +18,7 @@ from scipy.spatial import distance
 from scipy.spatial.transform import Rotation as R
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser = argparse.ArgumentParser(description='Camera calibration using GSI-based board images. It allows to find targets, save data and/or do the calibration process. Saved data can be used with "just_calibration.py".')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')

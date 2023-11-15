@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser = argparse.ArgumentParser(description='Calculates and correlates angular speed with RMS Error from a list targets.')
 parser.add_argument('file', type=str, help='Name of the file containing data (*.pkl).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
 

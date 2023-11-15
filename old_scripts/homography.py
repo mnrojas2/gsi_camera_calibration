@@ -15,7 +15,7 @@ from scipy.spatial.transform import Rotation as R
 from scipy.spatial import distance
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser = argparse.ArgumentParser(description='Camera calibration using GSI-based boards images. 2D points must be already found. Otherwise, use "point_tracking.py".')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
 parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument('-k', '--k456', action='store_true', default=False, help='Enables use of six radial distortion coefficients instead of the default three.')

@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation as R
 from matplotlib import pyplot as plt
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser = argparse.ArgumentParser(description='Calculates and correlates angular speed with RMS Error from a list targets (TOCO tests).')
 parser.add_argument('file', type=str, help='Name of the file containing data (*.pkl).')
 
 # Functions

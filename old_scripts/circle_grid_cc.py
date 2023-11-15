@@ -19,7 +19,7 @@ import argparse
 from tqdm import tqdm
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser = argparse.ArgumentParser(description='Camera calibration using circlegrid board images.')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
 parser.add_argument('-s', '--scale', type=int, metavar='N', default=0, choices=range(100), help='Scales down the image to get faster (and less reliable) results (range=0:9, default=0) .')
 parser.add_argument('-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')

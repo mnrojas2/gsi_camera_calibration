@@ -11,8 +11,8 @@ import datetime
 from scipy.spatial.transform import Rotation as R
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
-parser.add_argument('file', type=str, help='Name of the file containing data (*pkl).')
+parser = argparse.ArgumentParser(description='Camera calibration using 2D and 3D data saved in .pkl files.')
+parser.add_argument('file', type=str, help='Name of the file containing data (*.pkl).')
 parser.add_argument('-av', '--averagevalues', action='store_true', default=False, help="Uses averaged values (local) for 'camera_matrix' and 'dist_coeff'.")
 parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')

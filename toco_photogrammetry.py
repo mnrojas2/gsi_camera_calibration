@@ -17,7 +17,7 @@ from photutils.centroids import centroid_com
 
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Camera calibration using chessboard images.')
+parser = argparse.ArgumentParser(description='Finds target points in images and correlate them with 3D target point data.')
 parser.add_argument('file', type=str, help='Name of the file containing targets in 3D data (*.txt).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
 parser.add_argument('-dg', '--displaygraphs', action='store_true', default=False, help='Shows graphs and images.')
