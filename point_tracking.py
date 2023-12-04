@@ -20,6 +20,8 @@ from scipy.spatial.transform import Rotation as R
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using GSI-based board images. It allows to find targets, save data and/or do the calibration process. Saved data can be used with "just_calibration.py".')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
+parser.add_argument('xyz_data', type=str, help='Name of the file containing the 3D position of TARGETS and CODETARGETS (*.csv, cartesian units).')
+parser.add_argument('init_ct', type=str, help='Name of the file containing the 2D position of CODETARGETS of the first frame to analyze. (*.txt, (x,y) pixel units).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
 parser.add_argument( '-o', '--outf', type=str, metavar='out-folder', help='Name of the folder containing frames with their found points (--plot must also be called).')
@@ -163,11 +165,13 @@ def split_by_distance(objpts, imgpts, names, vecs, min_dist, dist_shift):
     return nobj, nimg, nnames
 
 ###############################################################################################################################
-# Parameters
+# Get parser arguments
+args = parser.parse_args()
 
+# Parameters
 # GSI data import
-# Import the 3D points from the csv file
-obj_3D = pd.read_csv('./datasets/coords/Bundle_fix.csv')[['X','Y','Z']]
+# Import the 3D points from the csv file 
+obj_3D = pd.read_csv(f'./datasets/3d_coords/{args.xyz_data}.csv') [['X','Y','Z']]
 points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 
 # Point of interest (center)
@@ -212,13 +216,10 @@ flags_model = cv.CALIB_USE_INTRINSIC_GUESS
 
 ###############################################################################################################################
 # Main
-
-# Get parser arguments
-args = parser.parse_args()
     
 if args.halfway:
     # Load .txt file with some specific frame codetarget locations
-    with open(f'./datasets/points-data/{args.halfway}.txt') as json_file:
+    with open(f'./datasets/2d_coords/{args.halfway}.txt') as json_file:
         frame_dict = json.load(json_file)
     
     # Save starting point
@@ -238,7 +239,7 @@ if args.halfway:
     ct_points_3D = obj_3D.loc[ct_names].to_numpy()
 else:
     # Load .txt file with some specific frame codetarget locations found manually (usually frame 0)
-    with open(f'./datasets/points-data/pts-start.txt') as json_file:
+    with open(f'./datasets/2d_coords/{args.init_ct}.txt') as json_file:
         frame_dict = json.load(json_file)
     
     # Use CODETARGET values from ct_frame_dict (default=image0)
@@ -409,7 +410,7 @@ for fname in images[start_frame:]:
     if args.save:
         save_corners = df_corners.to_dict()
         save_corners['last_passed_frame'] = images.index(fname)
-        with open(f'./datasets/points-data/data{args.folder}.txt', 'w') as fp:
+        with open(f'./datasets/2d_coords/data{args.folder}.txt', 'w') as fp:
             json.dump(save_corners, fp, indent=4)
     
     # Show or save frames with points

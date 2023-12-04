@@ -165,7 +165,9 @@ for item in pkl_list:
 objpoints = obj_list
 imgpoints = img_list
 ret_names = ret_list
-summary += f' Vidsft={sft}.'
+
+if args.file == 'all':
+    summary += f' Vidsft={sft}.'
 
 if args.averagevalues:
     print('Use of averaged values enabled')
