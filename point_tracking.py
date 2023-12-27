@@ -486,6 +486,8 @@ if args.calibenable:
 
     if args.calibsave:
         print(summary)
+        if not os.path.exists('./results'):
+            os.mkdir('./results')
         fs = cv.FileStorage('./results/'+args.folder[:-4]+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
         fs.write('summary', summary)
         fs.write('init_cam_calib', args.calibfile)

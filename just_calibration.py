@@ -7,6 +7,7 @@ import pickle
 import random
 import glob
 import re
+import os
 import datetime
 from scipy.spatial.transform import Rotation as R
 
@@ -209,6 +210,8 @@ if args.extended:
 
 if args.save:
     print(summary)
+    if not os.path.exists('./results'):
+        os.mkdir('./results')
     if args.file == 'all':
         fs = cv.FileStorage('./results/Call-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
     else:
