@@ -7,8 +7,10 @@ tests/
 pts_detection/
 federico**
 pkl-files_old
-results/final*
-plots/*
-old_scripts/*
+results_2/*
+!results_2/*.yml
+!results_2/*.xlsx
+plots*
+old_scripts
 toco_*
 ~$*
