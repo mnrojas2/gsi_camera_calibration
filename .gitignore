@@ -12,6 +12,4 @@ results/*
 !results/*.xlsx
 plots*
 old_scripts
-toco_*
-TOCOvid*
 ~$*
