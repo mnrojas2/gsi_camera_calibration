@@ -11,9 +11,9 @@ Code summary
 
 #) point_tracking.py : Takes a folder with frames and outputs the calibration camera parameters using a new method to work with the custom board made in laboratory.
 
-#) tabulate_yml_files.py: By reading a list of yml files containing camera calibration parameters, it sorts them and saves it in a .xlsx file.
-
 #) just_calibration.py: Gets the calibration algorithm by loading a dataset in .pkl. Useful as it does not need to find the points in all frames more than once (done by running point_tracking.py).
+
+#) tabulate_yml_files.py: By reading a list of yml files containing camera calibration parameters, it sorts them and saves it in a .xlsx file.
 
 #) vel_rms.py: Calculates and correlates angular speed with RMS Error from a list targets.
 
