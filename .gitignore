@@ -6,7 +6,7 @@ tests/
 !sets/targets/
 pts_detection/
 federico**
-pkl-files_old
+pkl-files*
 results/*
 !results/*.yml
 !results/*.xlsx
