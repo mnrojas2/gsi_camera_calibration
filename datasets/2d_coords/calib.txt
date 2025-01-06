@@ -1,0 +1,28 @@
+# Camera identification
+cam_model = 'Sony RX0-II'
+cam_model_serial = 'DSCRX0M2'
+cam_serial_no = 3171074
+cam_name = 'AIUC_Cam1'
+
+# Calibration date
+date = '2023-11-15'
+ 
+# Calibration method (wall, chessboard, circleboard, drone-<flight number>)
+method = 'wall'
+
+# Comments
+comments = "This calibration was the result of a long process to get the data from a single day tests made in August 2023. By using a randomized set of points put over the wall and other lab furniture, their X,Y,Z positions were acquired by using V-STARS software and hardware provided by Geodesic Systems with a high precision."
+
+# Calibration parameters
+# Camera matrix parameters
+fx = 2569.605957
+fy = 2568.584961
+cx = 1881.56543
+cy = 1087.135376
+
+# Distortion coefficient parameters
+k1 = 0.019473
+k2 = -0.041976
+p1 = -0.000273
+p2 = -0.001083
+k3 = 0.030603

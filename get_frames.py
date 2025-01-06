@@ -12,24 +12,29 @@ parser.add_argument('-in', '--folder', type=str, metavar='folder', default='', h
 parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=1, help='Reduction of number of frames (total/N).')
 parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
 parser.add_argument('-sn', '--startnumber', type=int, default=0, help="Number associated with the first frame and from where the count is starting. eg: 'frame0', 'frame1250'.")
+parser.add_argument('-af', '--alpha', type=float, default=1.0, help="Alpha value for change of Contrast of the images.")
+parser.add_argument('-bt', '--beta', type=float, default=0.0, help="Beta value for change of Contrast and Brightness of the images.")
 
 # Main function
 def main():
     # Take all arguments from terminal
     args = parser.parse_args()
-    print(f'Getting frames from ./videos/{args.folder}/{args.vidname}.mp4')
+    print(f'Getting frames from {args.vidname}')
     
     try:
         # Start the video to take the necessary frames
-        vidcap = cv.VideoCapture('videos/'+args.folder+'/'+args.vidname+'.mp4')
+        vidcap = cv.VideoCapture(args.vidname)
         total_frame_count = int(vidcap.get(cv.CAP_PROP_FRAME_COUNT))
         if total_frame_count == 0:
             # Since cv.VideoCapture can't force errors when no video is found, we do it manually.
             raise IndexError
         
+        # Get name of the file (not directory) to use it as folder name
+        vid_name = (args.vidname).replace('\\', '/').split('/')[-1][:-4]
+        
         # Create output folder if it wasn't created yet
-        if not os.path.exists('sets/'+args.vidname):
-            os.mkdir('sets/'+args.vidname)
+        if not os.path.exists(f'sets/{vid_name}'):
+            os.mkdir(f'sets/{vid_name}')
         
         # Start counters
         pbar = tqdm(desc='READING FRAMES', total=total_frame_count, unit=' frames', dynamic_ncols=True)
@@ -39,15 +44,16 @@ def main():
             frame_exists, curr_frame = vidcap.read()
             if frame_exists:
                 if frame_no % args.reduction == args.residue:
-                    cv.imwrite("sets/"+args.vidname+"/frame%d.jpg" % frame_no, curr_frame)
+                    curr_frame = cv.convertScaleAbs(curr_frame, alpha=args.alpha, beta=args.beta)
+                    cv.imwrite("sets/"+vid_name+"/frame%d.jpg" % frame_no, curr_frame)
             else:
                 pbar.close()
-                print(f'All frames were saved in /sets/{args.vidname}')
+                print(f'All frames were saved in /sets/{vid_name}')
                 break
             frame_no += 1
             pbar.update(1)
         vidcap.release()
     except:
-        print(f'No video named {args.vidname}.mp4 was found in ./videos/{args.folder}/')
+        print(f'No video was found in {args.vidname}')
 
 if __name__ == '__main__': main()

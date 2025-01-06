@@ -1,0 +1,17 @@
+{
+"CODETARGETS": {
+	"CODE139": [], 
+	"CODE140": [], 
+	"CODE141": [], 
+	"CODE143": [],
+	"CODE144": [],
+	"TARGET116": [],
+	"TARGET142": [],
+	"TARGET286": []
+	},
+"LINKPOINTS": [
+    "CODE139", "CODE140", "CODE141", "CODE143",	"CODE144",
+    "TARGET246", "TARGET295", "TARGET176", "TARGET142", "TARGET116", "TARGET286"
+    ],
+"POI": "CODE143"
+}
