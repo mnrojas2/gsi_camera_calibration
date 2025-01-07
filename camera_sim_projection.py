@@ -65,6 +65,10 @@ def main():
             header = ['X', 'Y', 'Z', 'sigmaX', 'sigmaY', 'sigmaZ', 'offset']
             gpsArr = pd.read_csv(args.file, delimiter='\t', names=header, index_col=0)[['X','Y','Z']]
         
+        # Remove NUGGETS and CSB targets
+        flt = gpsArr.index.str.contains("NUGGET|CSB|CODE133|CODE134|CODE135|CODE136|CODE137|CODE138")
+        gpsArr = gpsArr[~flt]
+        
         # Point of interest
         # TARGET89
         POI = gpsArr.loc[[args.poi]].to_numpy()[0]

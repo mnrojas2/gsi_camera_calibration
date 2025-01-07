@@ -15,6 +15,7 @@ import datetime
 import camera
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from matplotlib import patches
 from scipy.spatial import distance
 from scipy.spatial.transform import Rotation as R
 
@@ -195,6 +196,15 @@ ct_startframe = frame_dict["CODETARGETS"]
 # Get list of anchor points (used to project the rest of the points in a frame)
 link_targets = frame_dict["LINKPOINTS"]
 
+# Get list of target exceptions from the 3D point data to project over the 2D data
+exception_targets = frame_dict["EXCEPTIONS"]
+
+
+# Remove all exception targets from the 3D data list
+str_exceptions = '|'.join(exception_targets)
+flt = obj_3D.index.str.contains(str_exceptions)
+obj_3D = obj_3D[~flt]
+
 # Shift all 3D points' positions around the point of interest
 points_3D = obj_3D.to_numpy() # BEWARE: to_numpy() doesn't generate a copy but another instance to access the same data. So, if points_3D changes, obj3D will too.
 POI = obj_3D.loc[[frame_dict["POI"]]].to_numpy()[0]
@@ -202,7 +212,7 @@ points_3D -= POI
 
 ## Crossmatch
 # Initialize crossmatching algorithm functions
-orb = cv.ORB_create(WTA_K=4, nfeatures=10000)
+orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=31)
 bf = cv.BFMatcher.create(cv.NORM_HAMMING2, crossCheck=True)
 
 if args.calibfile:
@@ -303,7 +313,7 @@ for fname in images[start_frame:]:
     if fname != images[start_frame]:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None)
-        kp2, des2 = orb.detectAndCompute(img0,None)
+        kp2, des2 = orb.detectAndCompute(img_gray,None)
         
         # Match descriptors.
         matches = bf.match(des1,des2)
@@ -325,19 +335,46 @@ for fname in images[start_frame:]:
                 
         ct_corners_proy = np.array(nn_ct_proy)
         ct_corners_names = nn_ct_name
-            
+        
+        ###############
+        # Make standarized way to find at least the code targets (maybe based on a patch or something)
+        # Dilate image to merge all 8 points into one blob for each codetarget to find its center, based on the size of the points (standard distance between points in codetargets)
+        # Find a way to compensate when there are no enough points within the window to continue projecting the points in the next frame.
+        
+        ksize = 15
+        kernel = np.ones((ksize, ksize)) 
+        thr_new = cv.dilate(cv.bitwise_not(thr), kernel, iterations=1)
+        thr_new2 = cv.bitwise_not(thr_new)
+        
+        if images.index(fname) >= 28:
+            fig, ax = plt.subplots()
+            ax.imshow(thr_new2)
+            ax.scatter(ct_corners_proy[:,0,0], ct_corners_proy[:,0,1])
+            for kt in range(ct_corners_proy.shape[0]):
+                circle = patches.Circle((ct_corners_proy[kt,0,0], ct_corners_proy[kt,0,1]), radius=49, edgecolor='r', facecolor='none')
+                ax.add_patch(circle)
+            plt.show()
+        
         # Find the correct position of points using a small window and getting the highest value closer to the center.
         ct_corners = []
         ct_names_fix = []
+        wd = 49#24
         for i in range(ct_corners_proy.shape[0]):
             cnr = ct_corners_proy[i]
-            wd = 24
             x_min = 0 if int(cnr[0,0] - wd) <= 0 else int(cnr[0,0] - wd)
             x_max = w if int(cnr[0,0] + wd) >= w else int(cnr[0,0] + wd)
             y_min = 0 if int(cnr[0,1] - wd) <= 0 else int(cnr[0,1] - wd)
             y_max = h if int(cnr[0,1] + wd) >= h else int(cnr[0,1] + wd)
             
-            contours, _ = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            patchy = thr[y_min:y_max, x_min:x_max]
+            contours, _ = cv.findContours(patchy,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            
+            cv.drawContours(patchy, contours, -1, (0,255,0), 3)
+            
+            if images.index(fname) >= 28:
+                plt.figure()
+                plt.imshow(patchy)
+                plt.show()
             
             if len(contours) > 1: # and 'CODE' in ct_corners_names[i]) or (len(contours) > 1 and 'TARGET' in ct_corners_names[i]):
                 cntrs = []
@@ -362,19 +399,13 @@ for fname in images[start_frame:]:
         
     ###########################################################################################################################
     ## Find rest of points using CODETARGET projections
-    if args.calibfile:
-        # Get angle of camera by matching known 2D points with 3D points
-        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
-        
-        # Make simulated image with 3D points data
-        points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
-    else:
-        # Solve the matching without considering distortion coefficients
-        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, None)
-        points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, None)[0]
-        
-    df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
+    # Get angle of camera by matching known 2D points with 3D points
+    res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
     
+    # Make simulated image with 3D points data
+    points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
+    df_points_2D = pd.DataFrame(data=points_2D[:,0,:], index=obj_3D.index.to_list(), columns=['X', 'Y'])
+
     # List position of every point found
     contours, _ = cv.findContours(thr,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
     corners = []
@@ -432,7 +463,7 @@ for fname in images[start_frame:]:
     tgt_names.append(df_corners.index.to_list())
     vecs.append(np.array([rvec, tvec]))
 
-    img_old = img0#_gray
+    img_old = img_gray
     thr_old = thr
     pbar.update(1)
 pbar.close()
@@ -443,9 +474,9 @@ if args.save:
     vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names,
                 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1],
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
-    with open(f'./datasets/pkl-files/{args.folder}_vidpoints.pkl', 'wb') as fp:
+    with open(f'{args.folder}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
-        print(f"Dictionary saved successfully as './datasets/pkl-files/{args.folder}_vidpoints.pkl'")
+        print(f"Dictionary saved successfully as '{args.folder}_vidpoints.pkl'")
 
 # When everything done, release the frames
 cv.destroyAllWindows()
