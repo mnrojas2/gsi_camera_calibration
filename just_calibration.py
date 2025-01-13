@@ -9,12 +9,13 @@ import glob
 import re
 import os
 import datetime
+import camera
 from scipy.spatial.transform import Rotation as R
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using 2D and 3D data saved in .pkl files.')
 parser.add_argument('file', type=str, help='Name of the file containing data (*.pkl).')
-parser.add_argument('-av', '--averagevalues', action='store_true', default=False, help="Uses averaged values (local) for 'camera_matrix' and 'dist_coeff'.")
+parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 parser.add_argument('-fd', '--filterdist', action='store_true', default=False, help='Enables filter by distance of camera position.')
@@ -98,7 +99,7 @@ if args.file == 'all':
     pkl_list = sorted(glob.glob(f'./sets/*.pkl'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     # pkl_list = [item.split('\\')[-1] for item in pkl_list]
 else:
-    print(f'Loading {args.file}.pkl')
+    print(f'Loading {args.file}')
     pkl_list = [args.file]
 
 # Define what filters are active or not and put them in the summary.
@@ -169,8 +170,11 @@ ret_names = ret_list
 if args.file == 'all':
     summary += f' Vidsft={sft}.'
 
-if args.averagevalues:
-    print('Use of averaged values enabled')
+if args.calibfile:
+    cam = camera.Camera(args.calibfile)
+    camera_matrix = cam.cam_matrix()
+    dist_coeff = cam.dist_coeff()
+else:
     # Use averaged values
     # Camera matrix
     fx = 2569.6059570312500

@@ -25,7 +25,7 @@ parser.add_argument('folder', type=str, help='Name of the folder containing the 
 parser.add_argument('data_3d', type=str, help='Name of the file containing the 3D position of TARGETS and CODETARGETS (*.csv, cartesian units).')
 parser.add_argument('data_2d', type=str, help='Name of the file containing the 2D position of CODETARGETS of the first frame to analyze. (*.txt, (x,y) pixel units).')
 # Point tracking settings
-parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.yml), for point reprojection and/or initial guess during calibration.')
+parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves TARGET position data in .txt format as well as vectors of the 3D and 2D points for calibration.')
@@ -216,7 +216,7 @@ orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=255)
 bf = cv.BFMatcher.create(cv.NORM_HAMMING2, crossCheck=True)
 
 if args.calibfile:
-    cam = camera.Camera(args.calib)
+    cam = camera.Camera(args.calibfile)
     camera_matrix = cam.cam_matrix()
     dist_coeff = cam.dist_coeff()
 else:
@@ -511,7 +511,7 @@ if args.save:
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
     with open(f'./sets/{args.folder}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
-        print(f"Dictionary saved successfully as '{args.folder}_vidpoints.pkl'")
+        print(f"Dictionary successfully saved as '{args.folder}_vidpoints.pkl'")
 
 # When everything done, release the frames
 cv.destroyAllWindows()

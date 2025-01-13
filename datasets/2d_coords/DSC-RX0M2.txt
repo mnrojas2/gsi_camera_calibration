@@ -2,7 +2,7 @@
 cam_model = 'Sony RX0-II'
 cam_model_serial = 'DSCRX0M2'
 cam_serial_no = 3171074
-cam_name = 'AIUC_Cam1'
+cam_name = 'C0_PUC'
 
 # Calibration date
 date = '2023-11-15'
