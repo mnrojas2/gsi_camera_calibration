@@ -94,9 +94,8 @@ args = parser.parse_args()
 
 # Load pickle file
 if args.file == 'all':
-    print(f'Loading all .pkl files')
-    pkl_list = ['C42Finf_vidpoints', 'C43Finf_vidpoints', 'C46Finf_vidpoints', 'C50Finf_vidpoints', 'C67Finf_vidpoints']
-    # pkl_list = sorted(glob.glob(f'./datasets/pkl-files/*.pkl'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    print(f'Loading all .pkl files in ./sets/')
+    pkl_list = sorted(glob.glob(f'./sets/*.pkl'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     # pkl_list = [item.split('\\')[-1] for item in pkl_list]
 else:
     print(f'Loading {args.file}.pkl')
@@ -131,7 +130,7 @@ img_shape = False
 calibfile = False
 
 for item in pkl_list:
-    pFile = pickle.load(open(f"./datasets/pkl-files/{item}.pkl","rb"))
+    pFile = pickle.load(open(item, "rb"))
 
     # Unpack lists
     objpoints = pFile['3D_points']

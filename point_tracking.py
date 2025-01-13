@@ -58,7 +58,6 @@ def displayImage(img, width=1280, height=720, name='Picture'):
     cv.destroyAllWindows()
         
 def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, fdir='new_set'):
-    # Create output folder if it wasn't created yet
     if img.ndim == 2:
         img_copy = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     else:
@@ -79,6 +78,7 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
             if show_names and isinstance(arg, pd.DataFrame):
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
+        # Create output folder if it wasn't created yet
         if not os.path.exists('./sets/tracked_sets/'):
             os.mkdir('./sets/tracked_sets/')
         if not os.path.exists('./sets/tracked_sets/'+fdir):
@@ -212,7 +212,7 @@ points_3D -= POI
 
 ## Crossmatch
 # Initialize crossmatching algorithm functions
-orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=31)
+orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=255)
 bf = cv.BFMatcher.create(cv.NORM_HAMMING2, crossCheck=True)
 
 if args.calibfile:
@@ -310,7 +310,64 @@ for fname in images[start_frame:]:
     thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
     
     ## Frame to frame reprojection
-    if fname != images[start_frame]:
+    if fname == images[start_frame]:
+        #### TO DO ####
+        # Make standarized way to find at least the code targets (maybe based on a patch or something)
+        # Dilate image to merge all 8 points into one blob for each codetarget to find its center, based on the size of the points (standard distance between points in codetargets)
+        # Find a way to compensate when there are no enough points within the window to continue projecting the points in the next frame.
+        try:              
+            wd = 49 # Window size to find and correct codetarget points
+            rads = 0
+            for ct in ct_corners:
+                x_min = 0 if int(ct[0] - wd) <= 0 else int(ct[0] - wd)
+                x_max = w if int(ct[0] + wd) >= w else int(ct[0] + wd)
+                y_min = 0 if int(ct[1] - wd) <= 0 else int(ct[1] - wd)
+                y_max = h if int(ct[1] + wd) >= h else int(ct[1] + wd)
+                
+                ct_patch = thr[y_min:y_max, x_min:x_max]
+                contours, _ = cv.findContours(ct_patch,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+                
+                # Calculate centroids of the contours
+                centroids = []
+                rad = wd
+                for contour in contours:
+                    M = cv.moments(contour)
+                    if M["m00"] != 0:
+                        cX = int(M["m10"] / M["m00"])
+                        cY = int(M["m01"] / M["m00"])
+                        centroids.append([cX, cY])
+                centroids = np.array(centroids[1:])
+                
+                # Get average pixel distance between the points of CODETARGETS
+                distances = distance.cdist(centroids, centroids, 'euclidean')
+                np.fill_diagonal(distances, np.inf)
+                min_distances = np.min(distances, axis=1)
+                rads = np.max(min_distances.mean())
+        
+            # Use the average pixel distance to create the kernel to merge codetarget points                        
+            ksize = int(np.mean(rads))
+        except:
+            ksize = 15
+            
+        # Create the kernel and apply it over the inverted threshold (for cv.dilate to work as intended)
+        kernel = np.ones((ksize, ksize)) 
+        thr_new = cv.dilate(cv.bitwise_not(thr), kernel, iterations=1)
+        thr_dil = cv.bitwise_not(thr_new)     
+        
+        # plt.figure()
+        # plt.imshow(thr)
+        
+        # # if images.index(fname) >= 28:
+        # fig, ax = plt.subplots()
+        # ax.imshow(thr_dil)
+        # ax.scatter(ct_corners[:,0], ct_corners[:,1])
+        # for kt in range(ct_corners.shape[0]):
+        #     circle = patches.Circle((ct_corners[kt,0], ct_corners[kt,1]), radius=24, edgecolor='r', facecolor='none')
+        #     ax.add_patch(circle)
+        # plt.show()
+        ########
+        
+    else:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None)
         kp2, des2 = orb.detectAndCompute(img_gray,None)
@@ -336,29 +393,10 @@ for fname in images[start_frame:]:
         ct_corners_proy = np.array(nn_ct_proy)
         ct_corners_names = nn_ct_name
         
-        ###############
-        # Make standarized way to find at least the code targets (maybe based on a patch or something)
-        # Dilate image to merge all 8 points into one blob for each codetarget to find its center, based on the size of the points (standard distance between points in codetargets)
-        # Find a way to compensate when there are no enough points within the window to continue projecting the points in the next frame.
-        
-        ksize = 15
-        kernel = np.ones((ksize, ksize)) 
-        thr_new = cv.dilate(cv.bitwise_not(thr), kernel, iterations=1)
-        thr_new2 = cv.bitwise_not(thr_new)
-        
-        if images.index(fname) >= 28:
-            fig, ax = plt.subplots()
-            ax.imshow(thr_new2)
-            ax.scatter(ct_corners_proy[:,0,0], ct_corners_proy[:,0,1])
-            for kt in range(ct_corners_proy.shape[0]):
-                circle = patches.Circle((ct_corners_proy[kt,0,0], ct_corners_proy[kt,0,1]), radius=49, edgecolor='r', facecolor='none')
-                ax.add_patch(circle)
-            plt.show()
-        
         # Find the correct position of points using a small window and getting the highest value closer to the center.
+        wd = 49 #24
         ct_corners = []
         ct_names_fix = []
-        wd = 49#24
         for i in range(ct_corners_proy.shape[0]):
             cnr = ct_corners_proy[i]
             x_min = 0 if int(cnr[0,0] - wd) <= 0 else int(cnr[0,0] - wd)
@@ -366,15 +404,7 @@ for fname in images[start_frame:]:
             y_min = 0 if int(cnr[0,1] - wd) <= 0 else int(cnr[0,1] - wd)
             y_max = h if int(cnr[0,1] + wd) >= h else int(cnr[0,1] + wd)
             
-            patchy = thr[y_min:y_max, x_min:x_max]
-            contours, _ = cv.findContours(patchy,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            
-            cv.drawContours(patchy, contours, -1, (0,255,0), 3)
-            
-            if images.index(fname) >= 28:
-                plt.figure()
-                plt.imshow(patchy)
-                plt.show()
+            contours, _ = cv.findContours(thr[y_min:y_max, x_min:x_max],cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             
             if len(contours) > 1: # and 'CODE' in ct_corners_names[i]) or (len(contours) > 1 and 'TARGET' in ct_corners_names[i]):
                 cntrs = []
@@ -400,7 +430,12 @@ for fname in images[start_frame:]:
     ###########################################################################################################################
     ## Find rest of points using CODETARGET projections
     # Get angle of camera by matching known 2D points with 3D points
-    res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
+    try:
+        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
+    except:
+        img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,dmatches,None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        displayImage(img3)
+        input('The image did not get enough points or the homography did not work as intended, check your images. (Ctrl+C to stop the code)')
     
     # Make simulated image with 3D points data
     points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
@@ -474,7 +509,7 @@ if args.save:
     vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names,
                 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1],
                 'init_calibfile': args.calibfile, 'rt_vectors': vecs}
-    with open(f'{args.folder}_vidpoints.pkl', 'wb') as fp:
+    with open(f'./sets/{args.folder}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
         print(f"Dictionary saved successfully as '{args.folder}_vidpoints.pkl'")
 

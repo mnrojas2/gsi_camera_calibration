@@ -8,7 +8,7 @@ from tqdm import tqdm
 # Initialize parser
 parser = argparse.ArgumentParser(description='Extracts frames from a specified video.')
 parser.add_argument('vidname', type=str, help='Name of video (mp4 format).')
-parser.add_argument('-in', '--folder', type=str, metavar='folder', default='', help='Name of the folder/directory containing the video. Video or directory must be inside ./videos/ folder.')
+parser.add_argument('-o', '--output', type=str, metavar='folder', default='', help='Name of the folder that will contain the frames. If it is empty, the name of the file will be considered instead.')
 parser.add_argument('-rd', '--reduction', type=float, metavar='N', default=1, help='Reduction of number of frames (total/N).')
 parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help='Residue or offset for the reduced number of frames.')
 parser.add_argument('-sn', '--startnumber', type=int, default=0, help="Number associated with the first frame and from where the count is starting. eg: 'frame0', 'frame1250'.")
@@ -30,7 +30,10 @@ def main():
             raise IndexError
         
         # Get name of the file (not directory) to use it as folder name
-        vid_name = (args.vidname).replace('\\', '/').split('/')[-1][:-4]
+        if args.output == '':
+            vid_name = (args.vidname).replace('\\', '/').split('/')[-1][:-4]
+        else:
+            vid_name = args.output
         
         # Create output folder if it wasn't created yet
         if not os.path.exists(f'sets/{vid_name}'):
