@@ -7,13 +7,14 @@ import re
 import pandas as pd
 import numpy as np
 import scipy
+import datetime
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
 
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and generates histograms and exports data to Excel.')
-parser.add_argument('-in', '--folder', type=str, metavar='folder', default='', help='Name of the folder/directory containing the video. Folder must be inside ./results/ folder.')
+parser.add_argument('-in', '--folder', type=str, metavar='folder', default='', help='Name of the subdirectory containing the file. Folder must be inside ./results/ folder.')
 parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Exports data to .xlsx file.')
 
 
@@ -103,16 +104,20 @@ def filter_dataframe(dataframe, *args):
     # Filter the original dataframe and calculate mean and std
     new_df = dataframe[df_idx_s]
     return new_df
-    
+
+
 # Main
 def main():
     args = parser.parse_args()
+    
+    # Get the yml files
     if args.folder:
         dir = f'./results/{args.folder}/*.yml'
     else:
         dir = './results/*.yml'
     calibrationFiles = sorted(glob.glob(dir), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
+    # Unpack all data from the files and save them in a dictionary
     cc_data = {}
     cc_summary = {}
     for calibfile in calibrationFiles:
@@ -143,24 +148,31 @@ def main():
             cc_data[cb] = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'k1': k1, 'k2': k2, 'p1': p1, 'p2': p2, 'k3': k3}
         cc_summary[cb] = {'n.frames': nframes, 'summary': summary.string()}
 
+    # Generate a dataframe from the dictionary containing all parameters' results 
     df_ccd = pd.DataFrame(cc_data).T
+    
+    # Get statistics of the dataframe such as mean and std
     df_dcb = df_ccd.describe()
+    
+    # Add a row for "std/mean" and merge the previous dataframes into one
     df_dcb.loc['std/mean'] = df_dcb.loc['std'] / df_dcb.loc['mean']
     df_ccd_2 = pd.concat([df_ccd, df_dcb])
     df_complete = pd.concat([df_ccd_2, pd.DataFrame(cc_summary).T], axis=1)
     
+    # Plot the histogram
     hist_coeffs = df_histogram(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True, save_values=True)
     print(hist_coeffs)
     plt.show()
     
     if args.excel:
-        # df_ccd_c.to_excel('./results/camera_calibration_test.xlsx')
+        # Save the parameters in an excel file (Excel 2007 - xlsx)
+        date_today = str(datetime.datetime.now()).split('.')[0].replace('-', '').replace(':', '').replace(' ', '_')
         
         df_dist = filter_dataframe(df_complete, ('Filter by distance,', '-sm'))
         df_time = filter_dataframe(df_complete, ('Filter by time,', '-sm'))
         df_pnts = filter_dataframe(df_complete, ('Filter by time and points,', '-sm'))
         
-        with pd.ExcelWriter('results/camera_calibration_wo_outliers.xlsx') as writer:
+        with pd.ExcelWriter(f'./results/camera_calibration_{date_today}.xlsx') as writer:
             df_complete.to_excel(writer, sheet_name='Summary')
             df_dist.to_excel(writer, sheet_name='Filter by distance')
             df_time.to_excel(writer, sheet_name='Filter by time')
