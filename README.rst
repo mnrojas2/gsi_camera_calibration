@@ -2,19 +2,52 @@
 gsi_calibrationcam
 ==================
 
-Projects points from GSI using OpenCV functions
+CAMERA CALIBRATION GUIDE
+========================
 
-Code summary
-============
 
-1) get_frames.py: Reads a .mp4 video and outputs a folder with frames.
+Description of the main files
+-----------------------------
 
-#) point_tracking.py : Takes a folder with frames and outputs the calibration camera parameters using a new method to work with the custom board made in laboratory.
+ + get_frames.py: Script that takes all frames of a video and save them in a folder inside ./sets/.
+   - Just can just run this script, other arguments are not very important for now.
 
-#) just_calibration.py: Gets the calibration algorithm by loading a dataset in .pkl. Useful as it does not need to find the points in all frames more than once (done by running point_tracking.py).
+ + point_tracking.py: Script that tracks the position of some points and reproject them across all frames to get the rest. Then you can save the points on a "pkl" file (recommended for big sets of frames) or simply calculate the camera parameters right after getting all the points positions (recommended for small sets).
+   - There a "-p" (or "--plot") argument that prints every frame with every target marked on the image, inside the folder "./sets/tracked_sets/". This is useful to check if the tracking of the points is working correctly, as rarely the homography does not follow correctly the points for various reasons. 
+   - The "pkl" file can only be created if the "-s" (or "--save") argument is on.
 
-#) tabulate_yml_files.py: By reading a list of yml files containing camera calibration parameters, it sorts them and saves it in a .xlsx file.
+ + just_calibration.py: Script that takes a "pkl" file containing 3D and 2D positions of the targets and calculates the camera parameters based on them. It can also filter frames to reduce the amount of points to compute.
+   - The only important thing here is to include the previous camera parameter file, using the argument "-cb" (or "--calibfile") then the .txt file containing them.
+   - You can add "-ft -rd 100" to the argument list to enable the filter by time method, which just takes one frame every a certain number, that you need to indicate with the "-rd" argument. So "100" means the dataset will be reduced to "1/100" of the original.
+   - For other filter methods, the parser section at the start of the code describes the options. Or just simply run "python just_calibration.py --help" from the terminal.
+
+ + camera.py: Script that reads a camera_parameters file (.txt) and saves the camera matrix and distortion coefficients.
+   - Nothing important here, it's just a class to make it easier to load these values across different scripts.
+
+
+What to do
+----------
+
+1) Run 'python get_frames.py <video dirfile>' to get the frames of the video.
+
+2) Check the first frame with a image editor and save the (x,y) position of some targets in the dictionary called "CODETARGETS" inside a file based on "./datasets/2d_coords/template.txt". Ideally include all CODETARGETS you can see and others that are marked in "high_res_plot.png". 
+   *These points are very important since they are used to get the first match between the 3D points and the ones can be seen in the image.
+   *This code works very similar to the way Federico Astori tracks the position of the targets at the site.
+   *If one of the videos cannot be tracked correctly, try adding more targets to the "LINKPOINTS" list. This is why in "point_tracking.py" the argument '-p' is useful, because you can see what points can be seen in the image right before the code does not work.
+
+3) Run 'python point_tracking.py <frames-folder> ./datasets/hovercal_wall_20241122_106.txt ./datasets/2d_coords/<framesfolder>.txt -cb <previous-parameters-file> -p -s'
+   *Important for "-s" to be in the arguments list to save the points location data and to not repeat the point tracking for every calibration you want to do.
+   *And '-p' is to see if the homography is working fine, if it does not, you can try adding more 'LINKPOINTS' in its respective 2d_coords file.
+
+4) After the code has run completely, go to "./sets/tracked_sets/<frames-folder>" and check if the last frames still follow the target position correctly. If they do, you can continue, if they don't, the homography at some point didn't project the points correctly, so you will have to fix that.
+
+5) Run 'python just_calibration.py <pkl-file> -cb <previous-parameters-file>' to get the calibration data. 
+   *You can also try adding '-ft -rd 100' to reduce the amount of frames in a factor of 1/100.
+
+
+Other codes
+===========
+
+1) tabulate_yml_files.py: By reading a list of yml files containing camera calibration parameters, it sorts them and saves it in a .xlsx file.
 
 #) vel_rms.py: Calculates and correlates angular speed with RMS Error from a list targets.
-
-#) parametersCamAIUC.py: File that contains camera calibration parameters for Sony RX0-II owned by AIUC (first camera) with their respective errors.
