@@ -25,6 +25,7 @@ parser.add_argument('folder', type=str, help='Name of the folder containing the 
 parser.add_argument('data_3d', type=str, help='Name of the file containing the 3D position of TARGETS and CODETARGETS (*.csv, cartesian units).')
 parser.add_argument('data_2d', type=str, help='Name of the file containing the 2D position of CODETARGETS of the first frame to analyze. (*.txt, (x,y) pixel units).')
 # Point tracking settings
+parser.add_argument('-gm', '--gamma', type=float, default=False, help='Gamma correction')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
@@ -172,6 +173,13 @@ def split_by_distance(objpts, imgpts, names, vecs, min_dist, dist_shift):
     nnames = [names[i] for i in range(len(names)) if i in arg_split]
     return nobj, nimg, nnames
 
+def adjust_gamma(image, gamma=1.0):
+	# Adjust gamma value of the image 
+	invGamma = 1.0 / gamma
+	table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+	# apply gamma correction using the lookup table
+	return cv.LUT(image, table)
+
 ###############################################################################################################################
 # Get parser arguments
 args = parser.parse_args()
@@ -212,7 +220,7 @@ points_3D -= POI
 
 ## Crossmatch
 # Initialize crossmatching algorithm functions
-orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=255)
+orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=63, patchSize=255)
 bf = cv.BFMatcher.create(cv.NORM_HAMMING2, crossCheck=True)
 
 if args.calibfile:
@@ -306,8 +314,16 @@ for fname in images[start_frame:]:
     img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
     h, w = img_gray.shape
     
+    img_lab = cv.cvtColor(img0, cv.COLOR_BGR2LAB)
+    # Apply gamma correction
+    if args.gamma:
+        img_l = adjust_gamma(img_lab[:,:,0], gamma=args.gamma)
+        img_gray = adjust_gamma(img_lab[:,:,0], gamma=args.gamma)
+    else:
+        img_l = img_lab[:,:,0]
+    
     # Applying threshold to find points
-    thr = cv.adaptiveThreshold(img_gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
+    thr = cv.adaptiveThreshold(img_l, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
     
     ## Frame to frame reprojection
     if fname == images[start_frame]:
@@ -369,7 +385,10 @@ for fname in images[start_frame:]:
         
     else:
         # Detect new position of CODETARGETS
-        kp1, des1 = orb.detectAndCompute(img_old,None)
+        kp1, des1 = orb.detectAndCompute(img_old,None) 
+        # if args.gamma:
+        #     kp2, des2 = orb.detectAndCompute(img_l,None)
+        # else:
         kp2, des2 = orb.detectAndCompute(img_gray,None)
         
         # Match descriptors.
@@ -430,12 +449,7 @@ for fname in images[start_frame:]:
     ###########################################################################################################################
     ## Find rest of points using CODETARGET projections
     # Get angle of camera by matching known 2D points with 3D points
-    try:
-        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
-    except:
-        img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,dmatches,None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        displayImage(img3)
-        input('The image did not get enough points or the homography did not work as intended, check your images. (Ctrl+C to stop the code)')
+    res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
     
     # Make simulated image with 3D points data
     points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
@@ -498,7 +512,7 @@ for fname in images[start_frame:]:
     tgt_names.append(df_corners.index.to_list())
     vecs.append(np.array([rvec, tvec]))
 
-    img_old = img_gray
+    img_old = img_gray #l if args.gamma else img_gray
     thr_old = thr
     pbar.update(1)
 pbar.close()

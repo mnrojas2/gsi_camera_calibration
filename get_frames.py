@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import cv2 as cv
+import numpy as np
 import os
 import argparse
 from tqdm import tqdm
@@ -14,6 +15,14 @@ parser.add_argument('-rs', '--residue', type=float, metavar='N', default=0, help
 parser.add_argument('-sn', '--startnumber', type=int, default=0, help="Number associated with the first frame and from where the count is starting. eg: 'frame0', 'frame1250'.")
 parser.add_argument('-af', '--alpha', type=float, default=1.0, help="Alpha value for change of Contrast of the images.")
 parser.add_argument('-bt', '--beta', type=float, default=0.0, help="Beta value for change of Contrast and Brightness of the images.")
+
+def cb_balance(img, alpha=1.0, beta=0.0, auto=False):
+    # Adjust contrast and brightness balance of the image
+    if auto:
+        alpha = 255 / (np.max(img)-np.min(img))
+    if beta == 0 or auto:
+        beta = -np.min(img)*alpha
+    return alpha * img + beta
 
 # Main function
 def main():
@@ -47,7 +56,8 @@ def main():
             frame_exists, curr_frame = vidcap.read()
             if frame_exists:
                 if frame_no % args.reduction == args.residue:
-                    curr_frame = cv.convertScaleAbs(curr_frame, alpha=args.alpha, beta=args.beta)
+                    if args.alpha != 1.0 or args.beta != 0.0:
+                        curr_frame = cb_balance(curr_frame, args.alpha, args.beta)
                     cv.imwrite("sets/"+vid_name+"/frame%d.jpg" % frame_no, curr_frame)
             else:
                 pbar.close()
