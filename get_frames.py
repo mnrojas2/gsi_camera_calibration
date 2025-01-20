@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-import cv2 as cv
-import numpy as np
 import os
 import argparse
+import cv2 as cv
+import numpy as np
 from tqdm import tqdm
+
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Extracts frames from a specified video.')

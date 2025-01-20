@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
+import os
+import argparse
 import cv2 as cv
 import numpy as np
 import pandas as pd
-import argparse
 import camera
 from scipy.spatial.transform import Rotation as R
 from matplotlib import pyplot as plt
+
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Converts 3D points to 2D points by projecting them.')

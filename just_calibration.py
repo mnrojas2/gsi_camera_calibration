@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 
+import os
 import argparse
-import numpy as np
 import cv2 as cv
+import numpy as np
 import pickle
 import random
 import glob
 import re
-import os
 import datetime
 import camera
 from scipy.spatial.transform import Rotation as R
+
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using 2D and 3D data saved in .pkl files.')
