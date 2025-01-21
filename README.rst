@@ -48,6 +48,10 @@ What to do
 5) Run 'python just_calibration.py <pkl-file/pkl-files/pkl-folder> -cb <previous-parameters-file> -s' to get the calibration data. 
    *By adding '-s' the data is saved in a .yml file
    *You can also try adding '-ft -rd 100' to reduce the amount of frames in a factor of 1/100.
+   *Depending on how many files are added in the initial command or if it is a folder, the resulting '.yml' file will be named differently.
+    -if it is a single file like "C0061_vidpoints.pkl" the script will generate: "C0061_<date>_<time>.yml"
+    -if there are more than one file like "C0061a_vidpoints.pkl" and "C0061b_vidpoints.pkl" the script will generate: "C0061a-C0061b_<date>_<time>.yml"
+    -if both .pkl files are inside a folder like "C0061/" the script will generate: "C0061-<date>_<time>.yml"
 
 6) After getting multiple calibrations run 'python tabulate_yml_files.py --excel' to get the histograms across all calibrations saved in './results/'.
 
