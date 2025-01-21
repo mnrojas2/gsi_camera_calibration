@@ -45,6 +45,10 @@ def main():
         else:
             vid_name = args.output
         
+        # Create sets folder if it wasn't created yet
+        if not os.path.exists(f'sets/'):
+            os.mkdir(f'sets/')
+        
         # Create output folder if it wasn't created yet
         if not os.path.exists(f'sets/{vid_name}'):
             os.mkdir(f'sets/{vid_name}')
