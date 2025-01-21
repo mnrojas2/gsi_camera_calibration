@@ -16,7 +16,7 @@ Description of the main files
    - There a "-p" (or "--plot") argument that prints every frame with every target marked on the image, inside the folder "./sets/tracked_sets/". This is useful to check if the tracking of the points is working correctly, as rarely the homography does not follow correctly the points for various reasons. 
    - The "pkl" file can only be created if the "-s" (or "--save") argument is on.
 
- + just_calibration.py: Script that takes a "pkl" file containing 3D and 2D positions of the targets and calculates the camera parameters based on them. It can also filter frames to reduce the amount of points to compute.
+ + just_calibration.py: Script that takes one or more "pkl" files containing 3D and 2D positions of the targets and calculates the camera parameters based on them. It can also filter frames to reduce the amount of points to compute.
    - The only important thing here is to include the previous camera parameter file, using the argument "-cb" (or "--calibfile") then the .txt file containing them.
    - You can add "-ft -rd 100" to the argument list to enable the filter by time method, which just takes one frame every a certain number, that you need to indicate with the "-rd" argument. So "100" means the dataset will be reduced to "1/100" of the original.
    - For other filter methods, the parser section at the start of the code describes the options. Or just simply run "python just_calibration.py --help" from the terminal.
@@ -45,7 +45,8 @@ What to do
 
 4) After the code has run completely, go to "./sets/tracked_sets/<frames-folder>" and check if the last frames still follow the target position correctly. If they do, you can continue, if they don't, the homography at some point didn't project the points correctly, so you will have to fix that.
 
-5) Run 'python just_calibration.py <pkl-file> -cb <previous-parameters-file>' to get the calibration data. 
+5) Run 'python just_calibration.py <pkl-file/pkl-files/pkl-folder> -cb <previous-parameters-file> -s' to get the calibration data. 
+   *By adding '-s' the data is saved in a .yml file
    *You can also try adding '-ft -rd 100' to reduce the amount of frames in a factor of 1/100.
 
 6) After getting multiple calibrations run 'python tabulate_yml_files.py --excel' to get the histograms across all calibrations saved in './results/'.

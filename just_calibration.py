@@ -15,8 +15,7 @@ from scipy.spatial.transform import Rotation as R
 
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using 2D and 3D data saved in .pkl files.')
-parser.add_argument('file', type=str, help='Name of the file containing data (*.pkl).')
-parser.add_argument( '-a', '--all', action='store_true', default=False, help='Enables search of all (*.pkl) files to use them for the calculation of a single calibration.')
+parser.add_argument('file', nargs='+', type=str, help='Name of the file, files or folder containing files that contain data (*.pkl).')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 # Distance-based filters
@@ -97,16 +96,21 @@ flags_model = cv.CALIB_USE_INTRINSIC_GUESS
 # Get parser arguments
 args = parser.parse_args()
 
-if args.file.endswith('.pkl'):
-    args.all = False
-
-# Load pickle file
-if args.all:
-    print(f'Loading all .pkl files in {args.file}')
-    pkl_list = sorted(glob.glob(f'{args.file}/*.pkl'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+if args.file[0].endswith('.pkl'):
+    args_all = False
 else:
-    print(f'Loading {args.file}')
-    pkl_list = [args.file]
+    args_all = True
+
+# Load pickle file(s)
+if args_all:
+    print(f'Loading all .pkl files in {args.file[0]}')
+    pkl_list = sorted(glob.glob(f'{args.file[0]}/*.pkl'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+else:
+    if len(args.file) <= 1:
+        print(f'Loading {args.file[0]}')
+    else:
+        print(f'Loading {', '.join(args.file)}.')
+    pkl_list = args.file
 
 # Define what filters are active or not and put them in the summary.
 summary = ''
@@ -177,7 +181,7 @@ objpoints = obj_list
 imgpoints = img_list
 ret_names = ret_list
 
-if args.all:
+if args_all:
     summary += f' Vidsft={sft}.'
 
 if args.calibfile:
@@ -224,11 +228,15 @@ if args.save:
     print(summary)
     if not os.path.exists('./results'):
         os.mkdir('./results')
-    if args.all:
-        fs = cv.FileStorage('./results/Call-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
+    if args_all:
+        file = args.file[0].replace('\\', '/').split('/')[-1]                                   # Name of the folder of files
     else:
-        file = args.file.replace('\\', '/').split('/')[-1][:-14]
-        fs = cv.FileStorage('./results/'+file+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
+        if len(args.file) <= 1: 
+            file = args.file[0].replace('\\', '/').replace('_', '/').split('/')[-2]             # Name of the single file
+        else:
+            file_list = [single_file.replace('\\', '/').replace('_', '/').split('/')[-2] for single_file in args.file]
+            file = '-'.join(file_list)                                                          # Name of the multiple files with a hyphen in the middle 
+    fs = cv.FileStorage('./results/'+file+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
     fs.write('init_cam_calib', calibfile)
     fs.write('camera_matrix', mtx)
