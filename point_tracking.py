@@ -19,6 +19,7 @@ from matplotlib import patches
 from scipy.spatial import distance
 from scipy.spatial.transform import Rotation as R
 
+
 # Initialize parser
 parser = argparse.ArgumentParser(description='Camera calibration using GSI-based board images. It allows to find targets, save data and/or do the calibration process. Saved data can be used with "just_calibration.py".')
 parser.add_argument('folder', type=str, help='Name of the folder containing the frames (*.jpg).')
@@ -220,7 +221,7 @@ points_3D -= POI
 
 ## Crossmatch
 # Initialize crossmatching algorithm functions
-orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=63, patchSize=255)
+orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=255)
 bf = cv.BFMatcher.create(cv.NORM_HAMMING2, crossCheck=True)
 
 if args.calibfile:
@@ -370,18 +371,18 @@ for fname in images[start_frame:]:
         thr_new = cv.dilate(cv.bitwise_not(thr), kernel, iterations=1)
         thr_dil = cv.bitwise_not(thr_new)     
         
-        # plt.figure()
-        # plt.imshow(thr)
+        plt.figure()
+        plt.imshow(thr)
         
-        # # if images.index(fname) >= 28:
-        # fig, ax = plt.subplots()
-        # ax.imshow(thr_dil)
-        # ax.scatter(ct_corners[:,0], ct_corners[:,1])
-        # for kt in range(ct_corners.shape[0]):
-        #     circle = patches.Circle((ct_corners[kt,0], ct_corners[kt,1]), radius=24, edgecolor='r', facecolor='none')
-        #     ax.add_patch(circle)
-        # plt.show()
-        ########
+        # if images.index(fname) >= 28:
+        fig, ax = plt.subplots()
+        ax.imshow(thr_dil)
+        ax.scatter(ct_corners[:,0], ct_corners[:,1])
+        for kt in range(ct_corners.shape[0]):
+            circle = patches.Circle((ct_corners[kt,0], ct_corners[kt,1]), radius=24, edgecolor='r', facecolor='none')
+            ax.add_patch(circle)
+        plt.show()
+        #######
         
     else:
         # Detect new position of CODETARGETS
@@ -449,7 +450,11 @@ for fname in images[start_frame:]:
     ###########################################################################################################################
     ## Find rest of points using CODETARGET projections
     # Get angle of camera by matching known 2D points with 3D points
-    res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
+    try:
+        res, rvec, tvec = cv.solvePnP(ct_points_3D, ct_corners, camera_matrix, dist_coeff)
+    except:
+        img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        displayImage(img3)
     
     # Make simulated image with 3D points data
     points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
