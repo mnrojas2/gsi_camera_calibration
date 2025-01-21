@@ -220,7 +220,7 @@ points_3D -= POI
 
 ## Crossmatch
 # Initialize crossmatching algorithm functions
-orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=63, patchSize=255)
+orb = cv.ORB_create(WTA_K=4, nfeatures=10000, edgeThreshold=31, patchSize=255)
 bf = cv.BFMatcher.create(cv.NORM_HAMMING2, crossCheck=True)
 
 if args.calibfile:
