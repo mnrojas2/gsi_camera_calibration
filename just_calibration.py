@@ -96,10 +96,10 @@ flags_model = cv.CALIB_USE_INTRINSIC_GUESS
 # Get parser arguments
 args = parser.parse_args()
 
-if args.file[0].endswith('.pkl'):
-    args_all = False
-else:
+if os.path.isdir(args.file[0]):
     args_all = True
+else:
+    args_all = False
 
 # Load pickle file(s)
 if args_all:
@@ -142,7 +142,7 @@ calibfile = False
 
 for item in pkl_list:
     pFile = pickle.load(open(item, "rb"))
-    item_name = item.split('\\')[-1][:5]
+    item_name = os.path.basename(item).split('_')[0]
 
     # Unpack lists from the .pkl file(s)
     objpoints = pFile['3D_points']
@@ -229,12 +229,12 @@ if args.save:
     if not os.path.exists('./results'):
         os.mkdir('./results')
     if args_all:
-        file = args.file[0].replace('\\', '/').split('/')[-1]                                   # Name of the folder of files
+        file = os.path.basename(args.file[0])                                                   # Name of the folder of files
     else:
         if len(args.file) <= 1: 
-            file = args.file[0].replace('\\', '/').replace('_', '/').split('/')[-2]             # Name of the single file
+            file = os.path.basename(args.file[0]).split('_')[0]                                 # Name of the single file
         else:
-            file_list = [single_file.replace('\\', '/').replace('_', '/').split('/')[-2] for single_file in args.file]
+            file_list = [os.path.basename(sfile).split('_')[0] for sfile in args.file]
             file = '-'.join(file_list)                                                          # Name of the multiple files with a hyphen in the middle 
     fs = cv.FileStorage('./results/'+file+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)

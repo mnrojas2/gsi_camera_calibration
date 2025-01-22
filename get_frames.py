@@ -41,7 +41,7 @@ def main():
         
         # Get name of the file (not directory) to use it as folder name
         if args.output == '':
-            vid_name = (args.vidname).replace('\\', '/').split('/')[-1][:-4]
+            vid_name = os.path.basename(args.vidname)[:-4]
         else:
             vid_name = args.output
         
