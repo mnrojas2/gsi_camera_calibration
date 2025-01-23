@@ -314,7 +314,7 @@ images = sorted(glob.glob(f'./sets/{args.folder}/*.jpg'), key=lambda x:[int(c) i
 ###############################################################################################################################
 # Image processing
 
-pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True)
+pbar = tqdm(desc='READING FRAMES', total=len(images), unit=' frames', dynamic_ncols=True, miniters=1)
 if start_frame != 0:
     pbar.update(start_frame)
 for fname in images[start_frame:]:
@@ -529,7 +529,7 @@ for fname in images[start_frame:]:
             json.dump(save_corners, fp, indent=4)
 
         vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names, 'rt_vectors': vecs}
-        with open(f'{backup_dir}/{os.path.basename(args.data_2d)[:-4]}_f{images.index(fname)}b.pkl', 'wb') as fpkl:
+        with open(f'{backup_dir}/{os.path.basename(args.data_2d)[:-4]}_f{images.index(fname)}.pkl', 'wb') as fpkl:
             pickle.dump(vid_data, fpkl)
 
     img_old = img_gray
