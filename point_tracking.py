@@ -28,7 +28,7 @@ parser.add_argument('data_2d', type=str, help='Name of the file containing the 2
 parser.add_argument('-gm', '--gamma', type=float, default=False, help='Gamma correction')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows or saves plots of every frame with image points and projected points.')
-parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Name of the file containing target data to restart tracking process from any frame (*.txt).')
+parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Last part of the name of the file containing target data to restart tracking process from any frame.')
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves TARGET position data in .txt format as well as vectors of the 3D and 2D points for calibration.')
 # Camera calibration settings
 parser.add_argument( '-c', '--calibenable', action='store_true', default=False, help='Enables calibration process after finding all points from video.')
