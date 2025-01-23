@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import cv2 as cv
 import argparse
 import glob
@@ -122,7 +123,7 @@ def main():
     cc_summary = {}
     for calibfile in calibrationFiles:
         fs = cv.FileStorage(calibfile, cv.FILE_STORAGE_READ)
-        cb = calibfile.split("\\")[-1][:-4]
+        cb = os.path.basename(calibfile)[:-4]
         mtx = fs.getNode("camera_matrix")
         dcff = fs.getNode("dist_coeff")
         nframes = len(fs.getNode("per_view_errors").mat())
@@ -172,11 +173,15 @@ def main():
         df_time = filter_dataframe(df_complete, ('Filter by time,', '-sm'))
         df_pnts = filter_dataframe(df_complete, ('Filter by time and points,', '-sm'))
         
+        df_dist_full = pd.concat([df_dist, df_dist.describe()])
+        df_time_full = pd.concat([df_time, df_time.describe()])
+        df_pnts_full = pd.concat([df_pnts, df_pnts.describe()])
+        
         with pd.ExcelWriter(f'./results/camera_calibration_{date_today}.xlsx') as writer:
             df_complete.to_excel(writer, sheet_name='Summary')
-            df_dist.to_excel(writer, sheet_name='Filter by distance')
-            df_time.to_excel(writer, sheet_name='Filter by time')
-            df_pnts.to_excel(writer, sheet_name='Filter by time and points')
+            df_dist_full.to_excel(writer, sheet_name='Filter by distance')
+            df_time_full.to_excel(writer, sheet_name='Filter by time')
+            df_pnts_full.to_excel(writer, sheet_name='Filter by time and points')
             
     
 if __name__=='__main__': main()
