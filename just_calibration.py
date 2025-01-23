@@ -238,7 +238,7 @@ if args.save:
             file = '-'.join(file_list)                                                          # Name of the multiple files with a hyphen in the middle 
     fs = cv.FileStorage('./results/'+file+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
     fs.write('summary', summary)
-    fs.write('init_cam_calib', calibfile)
+    fs.write('init_cam_calib', os.path.basename(args.calibfile))
     fs.write('camera_matrix', mtx)
     fs.write('dist_coeff', dist)
     fs.write('rvec', np.array(rvecs))

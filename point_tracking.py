@@ -32,7 +32,6 @@ parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='N
 parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves TARGET position data in .txt format as well as vectors of the 3D and 2D points for calibration.')
 # Camera calibration settings
 parser.add_argument( '-c', '--calibenable', action='store_true', default=False, help='Enables calibration process after finding all points from video.')
-parser.add_argument( '-e', '--extended', action='store_true', default=False, help='Enables use of cv.calibrateCameraExtended instead of the default function.')
 parser.add_argument('-cs', '--calibsave', action='store_true', default=False, help='Saves calibration data results in .yml format.')
 # Distance-based filters
 parser.add_argument('-fd', '--filterdist', action='store_true', default=False, help='Enables filter by distance of camera position.')
@@ -256,11 +255,13 @@ flags_model = cv.CALIB_USE_INTRINSIC_GUESS
     
 if args.halfway:
     # Load .txt file with some specific frame (halfway in the process) codetarget locations
-    with open(args.halfway) as json_file:
+    hf_dir = os.path.dirname(args.data_2d)+'/backup/'+os.path.basename(args.data_2d)[:-4]+'_'+args.halfway
+    with open(hf_dir+'.txt') as json_file:
         frame_dict = json.load(json_file)
     
     # Save starting point
-    start_frame = 1+int(frame_dict['last_passed_frame'])
+    start_frame = int(frame_dict['last_passed_frame'][1])
+    print('Starting frame: ',frame_dict['last_passed_frame'][0])
     frame_dict.pop('last_passed_frame')
     
     # Get point values
@@ -274,6 +275,17 @@ if args.halfway:
     
     # Get CODETARGET locations in 3D
     ct_points_3D = obj_3D.loc[ct_names].to_numpy()
+    
+    # Load pkl file with 3D-2D already classified data    
+    pFile = pickle.load(open(hf_dir+'.pkl', "rb"))
+
+    # Unpack lists from the .pkl file(s)
+    objpoints = pFile['3D_points']
+    imgpoints = pFile['2D_points']
+    ret_names = pFile['name_points']
+    tgt_names = pFile['name_targets']
+    vecs = pFile['rt_vectors']
+
 else:
     # Set start frame
     start_frame = 0
@@ -283,6 +295,13 @@ else:
     
     # Get CODETARGET locations in 3D
     ct_points_3D = obj_3D.loc[ct_startframe.keys()].to_numpy()
+    
+    # Arrays to store object points and image points from all frames possible.
+    objpoints = [] # 3d points in real world space
+    imgpoints = [] # 2d points in image plane.
+    ret_names = [] # names of every frame for tabulation
+    tgt_names = [] # names of every target for correlation
+    vecs = []      # rotation and translation vectors from reconstruction
 
 
 ###############################################################################################################################
@@ -291,13 +310,6 @@ else:
 # Get images from directory
 print(f"Searching images in ./sets/{args.folder}/")
 images = sorted(glob.glob(f'./sets/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
-
-# Arrays to store object points and image points from all frames possible.
-objpoints = [] # 3d points in real world space
-imgpoints = [] # 2d points in image plane.
-ret_names = [] # names of every frame for tabulation
-tgt_names = [] # names of every target for correlation
-vecs = []      # rotation and translation vectors from reconstruction
 
 ###############################################################################################################################
 # Image processing
@@ -308,7 +320,7 @@ if start_frame != 0:
 for fname in images[start_frame:]:
     # Read image
     img0 = cv.imread(fname)
-    ffname = fname[8+len(args.folder):-4]
+    ffname = os.path.basename(fname)[:-4]
     
     # Detect points in image
     img_gray = cv.cvtColor(img0, cv.COLOR_BGR2GRAY)
@@ -331,6 +343,7 @@ for fname in images[start_frame:]:
         # Make standarized way to find at least the code targets (maybe based on a patch or something)
         # Dilate image to merge all 8 points into one blob for each codetarget to find its center, based on the size of the points (standard distance between points in codetargets)
         # Find a way to compensate when there are no enough points within the window to continue projecting the points in the next frame.
+        ###############
         try:              
             wd = 49 # Window size to find and correct codetarget points
             rads = 0
@@ -370,6 +383,7 @@ for fname in images[start_frame:]:
         thr_new = cv.dilate(cv.bitwise_not(thr), kernel, iterations=1)
         thr_dil = cv.bitwise_not(thr_new)     
         
+        ########
         # plt.figure()
         # plt.imshow(thr)
         
@@ -386,9 +400,6 @@ for fname in images[start_frame:]:
     else:
         # Detect new position of CODETARGETS
         kp1, des1 = orb.detectAndCompute(img_old,None) 
-        # if args.gamma:
-        #     kp2, des2 = orb.detectAndCompute(img_l,None)
-        # else:
         kp2, des2 = orb.detectAndCompute(img_gray,None)
         
         # Match descriptors.
@@ -494,25 +505,34 @@ for fname in images[start_frame:]:
     ct_corners_names = [idx for idx in df_corners.index if idx in link_targets]
     ct_corners = new_corners[ct_corners_idx]
     
-    # Save CODETARGETS data in a .txt file in case it's necessary to restart halfway through the process.
-    if args.save:
-        save_corners = df_corners.to_dict()
-        save_corners['last_passed_frame'] = images.index(fname)
-        with open(f'{args.data_2d[:-4]}_mid.txt', 'w') as fp:
-            json.dump(save_corners, fp, indent=4)
-    
     # Show or save frames with points
     if args.plot:
         displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True, fdir=args.folder)
 
     # Save 3D and 2D point data for calibration
-    objpoints.append(new_obj3D)
-    imgpoints.append(new_corners)
-    ret_names.append(ffname)
-    tgt_names.append(df_corners.index.to_list())
-    vecs.append(np.array([rvec, tvec]))
+    if not (args.halfway and start_frame == images.index(fname)):
+        objpoints.append(new_obj3D)
+        imgpoints.append(new_corners)
+        ret_names.append(ffname)
+        tgt_names.append(df_corners.index.to_list())
+        vecs.append(np.array([rvec, tvec]))
+    
+    # Backup
+    backup_dir = f'{os.path.dirname(args.data_2d)}/backup'
+    if not os.path.exists(backup_dir):
+        os.mkdir(backup_dir)
+    
+    if images.index(fname) % 100 == 0 and start_frame != images.index(fname):
+        save_corners = df_corners.to_dict()
+        save_corners['last_passed_frame'] = [os.path.basename(fname), images.index(fname)]
+        with open(f'{backup_dir}/{os.path.basename(args.data_2d)[:-4]}_f{images.index(fname)}b.txt', 'w') as fp:
+            json.dump(save_corners, fp, indent=4)
 
-    img_old = img_gray #l if args.gamma else img_gray
+        vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names, 'rt_vectors': vecs}
+        with open(f'{backup_dir}/{os.path.basename(args.data_2d)[:-4]}_f{images.index(fname)}b.pkl', 'wb') as fpkl:
+            pickle.dump(vid_data, fpkl)
+
+    img_old = img_gray
     thr_old = thr
     pbar.update(1)
 pbar.close()
@@ -520,9 +540,8 @@ pbar.close()
 if args.save:
     # Save target data in pkl to analyze it in other files.
     # Note: Data will not complete if argparse option '--halfway' is used.
-    vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names,
-                'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1],
-                'init_calibfile': args.calibfile, 'rt_vectors': vecs}
+    vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names, 'rt_vectors': vecs,
+                'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1], 'init_calibfile': args.calibfile}
     with open(f'./sets/{args.folder}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
         print(f"Dictionary successfully saved as '{args.folder}_vidpoints.pkl'")
@@ -561,32 +580,29 @@ if args.calibenable:
     
     # Camera Calibration
     print("Calculating camera parameters...")
-    if args.extended:
-        ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
-        pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
-        pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
-    else:
-        ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+    ret, mtx, dist, rvecs, tvecs, stdInt, stdExt, pVE = cv.calibrateCameraExtended(objpoints, imgpoints, img0.shape[1::-1], cameraMatrix=camera_matrix, distCoeffs=dist_coeff, flags=flags_model)
+    pVE_extended = np.array((np.array(ret_names, dtype=object), pVE[:,0])).T
+    pVE_extended = pVE_extended[pVE_extended[:,1].argsort()]
 
     print('Camera matrix:\n', mtx)
     print('Distortion coefficients:\n', dist)
-    if args.extended:
-        print('Error per frame:\n', pVE_extended)
+    print('Error per frame:\n', pVE_extended)
 
     if args.calibsave:
         print(summary)
         if not os.path.exists('./results'):
             os.mkdir('./results')
-        fs = cv.FileStorage('./results/'+args.folder[:-4]+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
+        fs = cv.FileStorage('./results/'+args.folder+'-'+date_today+'.yml', cv.FILE_STORAGE_WRITE)
         fs.write('summary', summary)
-        fs.write('init_cam_calib', args.calibfile)
+        fs.write('init_cam_calib', os.path.basename(args.calibfile))
         fs.write('camera_matrix', mtx)
         fs.write('dist_coeff', dist)
-        if args.extended:
-            pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
-            fs.write('std_intrinsics', stdInt)
-            fs.write('std_extrinsics', stdExt)
-            fs.write('per_view_errors', pVElist)
+        fs.write('rvec', np.array(rvecs))
+        fs.write('tvec', np.array(tvecs))
+        fs.write('std_intrinsics', stdInt)
+        fs.write('std_extrinsics', stdExt)
+        pVElist = np.array((np.array([int(x[5:]) for x in ret_names]), pVE[:,0])).T
+        fs.write('per_view_errors', pVElist)
         fs.release()
 
 print("We finished!")
