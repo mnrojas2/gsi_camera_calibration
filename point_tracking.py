@@ -529,7 +529,7 @@ for fname in images[start_frame:]:
     if images.index(fname) % 100 == 0 and start_frame != images.index(fname):
         save_corners = df_corners.to_dict()
         save_corners['last_passed_frame'] = [os.path.basename(fname), images.index(fname)]
-        with open(f'{backup_dir}/{os.path.basename(args.data_2d)[:-4]}_f{images.index(fname)}b.txt', 'w') as fp:
+        with open(f'{backup_dir}/{os.path.basename(args.data_2d)[:-4]}_f{images.index(fname)}.txt', 'w') as fp:
             json.dump(save_corners, fp, indent=4)
 
         vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names, 'rt_vectors': vecs}
