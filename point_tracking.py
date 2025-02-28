@@ -336,66 +336,26 @@ for fname in images[start_frame:]:
         img_l = img_lab[:,:,0]
     
     # Applying threshold to find points
-    thr = cv.adaptiveThreshold(img_l, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -64)
+    thr = cv.adaptiveThreshold(img_l, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -96) #-64
     
     ## Frame to frame reprojection
-    if fname == images[start_frame]:
-        #### TO DO ####
-        # Make standarized way to find at least the code targets (maybe based on a patch or something)
-        # Dilate image to merge all 8 points into one blob for each codetarget to find its center, based on the size of the points (standard distance between points in codetargets)
-        # Find a way to compensate when there are no enough points within the window to continue projecting the points in the next frame.
-        ###############
-        try:              
-            wd = 49 # Window size to find and correct codetarget points
-            rads = 0
-            for ct in ct_corners:
-                x_min = 0 if int(ct[0] - wd) <= 0 else int(ct[0] - wd)
-                x_max = w if int(ct[0] + wd) >= w else int(ct[0] + wd)
-                y_min = 0 if int(ct[1] - wd) <= 0 else int(ct[1] - wd)
-                y_max = h if int(ct[1] + wd) >= h else int(ct[1] + wd)
-                
-                ct_patch = thr[y_min:y_max, x_min:x_max]
-                contours, _ = cv.findContours(ct_patch,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-                
-                # Calculate centroids of the contours
-                centroids = []
-                rad = wd
-                for contour in contours:
-                    M = cv.moments(contour)
-                    if M["m00"] != 0:
-                        cX = int(M["m10"] / M["m00"])
-                        cY = int(M["m01"] / M["m00"])
-                        centroids.append([cX, cY])
-                centroids = np.array(centroids[1:])
-                
-                # Get average pixel distance between the points of CODETARGETS
-                distances = distance.cdist(centroids, centroids, 'euclidean')
-                np.fill_diagonal(distances, np.inf)
-                min_distances = np.min(distances, axis=1)
-                rads = np.max(min_distances.mean())
+    if fname == images[start_frame]:  
+        # Apply dilation to connect nearby points
+        ksize = 15
+        kernel = np.ones((ksize, ksize), np.uint8)  # Adjust the kernel size as needed
+        thr_dil = cv.morphologyEx(thr, cv.MORPH_ERODE, kernel)
+        thr_ope = cv.morphologyEx(thr_dil, cv.MORPH_CLOSE, np.ones((2*ksize, 2*ksize)))
         
-            # Use the average pixel distance to create the kernel to merge codetarget points                        
-            ksize = int(np.mean(rads))
-        except:
-            ksize = 15
+        if start_frame == 0:
+            plt.figure()
+            plt.imshow(thr)
             
-        # Create the kernel and apply it over the inverted threshold (for cv.dilate to work as intended)
-        kernel = np.ones((ksize, ksize)) 
-        thr_new = cv.dilate(cv.bitwise_not(thr), kernel, iterations=1)
-        thr_dil = cv.bitwise_not(thr_new)     
-        
-        plt.figure()
-        plt.imshow(thr)
-        
-        # if images.index(fname) >= 28:
-        fig, ax = plt.subplots()
-        ax.imshow(thr_dil)
-        ax.scatter(ct_corners[:,0], ct_corners[:,1])
-        for kt in range(ct_corners.shape[0]):
-            circle = patches.Circle((ct_corners[kt,0], ct_corners[kt,1]), radius=24, edgecolor='r', facecolor='none')
-            ax.add_patch(circle)
-        plt.show()
-        #######
+            fig, ax = plt.subplots()
+            ax.imshow(thr_ope)
+            for kt in range(ct_corners.shape[0]):
+                circle = patches.Circle((ct_corners[kt,0], ct_corners[kt,1]), radius=24, edgecolor='r', facecolor='none')
+                ax.add_patch(circle)
+            plt.show()  
         
     else:
         # Detect new position of CODETARGETS
@@ -457,6 +417,21 @@ for fname in images[start_frame:]:
         ct_corners_names = ct_names_fix
         ct_points_3D = obj_3D.loc[ct_corners_names].to_numpy()
         
+        ksize = 15
+        kernel = np.ones((ksize, ksize), np.uint8)  # Adjust the kernel size as needed
+        thr_dil = cv.morphologyEx(thr, cv.MORPH_ERODE, kernel)
+        thr_ope = cv.morphologyEx(thr_dil, cv.MORPH_CLOSE, np.ones((2*ksize, 2*ksize)))
+        
+        if start_frame == 0:
+            fig, ax = plt.subplots()
+            ax.imshow(thr_ope)
+            for kt in range(ct_corners.shape[0]):
+                circle = patches.Circle((ct_corners[kt,0,0], ct_corners[kt,0,1]), radius=24, edgecolor='r', facecolor='none')
+                ax.add_patch(circle)
+            plt.savefig('./sets/sets_code/'+ffname+'.jpg')
+            # plt.show() 
+            plt.close()
+        
     ###########################################################################################################################
     ## Find rest of points using CODETARGET projections
     # Get angle of camera by matching known 2D points with 3D points
@@ -465,6 +440,8 @@ for fname in images[start_frame:]:
     except:
         img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         displayImage(img3)
+        print(ffname, images.index(fname))
+        input('ctrl+c')
     
     # Make simulated image with 3D points data
     points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
