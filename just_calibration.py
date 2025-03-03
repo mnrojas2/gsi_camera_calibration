@@ -229,7 +229,8 @@ if args.save:
     if not os.path.exists('./results'):
         os.mkdir('./results')
     if args_all:
-        file = os.path.basename(args.file[0])                                                   # Name of the folder of files
+        file = os.path.basename(os.path.normpath(args.file[0]))                                 # Name of the folder of files
+        print(args.file, args.file[0], os.path.basename(args.file[0]))
     else:
         if len(args.file) <= 1: 
             file = os.path.basename(args.file[0]).split('_')[0]                                 # Name of the single file
@@ -245,7 +246,7 @@ if args.save:
     fs.write('tvec', np.array(tvecs))
     fs.write('std_intrinsics', stdInt)
     fs.write('std_extrinsics', stdExt)
-    pVElist = np.array((np.array([int(x[10:]) if len(pkl_list) > 1 else int(x[5:]) for x in ret_names]), pVE[:,0])).T
+    pVElist = np.array((([int(x[1:5] + x.split('frame')[-1].zfill(5)) if len(pkl_list) > 1 else int(x.split('frame')[-1]) for x in ret_names]), pVE[:,0])).T
     fs.write('per_view_errors', pVElist)
     fs.release()
 

@@ -35,21 +35,25 @@ def main():
     # Filter points that are too far in the Z axis
     objpoints_new = []
     imgpoints_new = []
+    nam_targets_new = []
 
     for i in range(len(objpoints)):
         obj3D = objpoints[i]
         img2D = imgpoints[i]
+        nmtarg = nam_targets[i]
         
         # Filter all points whose Z axis is over 400 in both lists
         obj3D_ftr = obj3D[obj3D[:,2] < 400]
         img2D_ftr = img2D[obj3D[:,2] < 400]
-        
+        nmtarg_ftr = [nmtarg[i] for i in range(len(nmtarg)) if obj3D[i,2] < 400]
+
         # Append them in new lists to save
         objpoints_new.append(obj3D_ftr)
         imgpoints_new.append(img2D_ftr)
+        nam_targets_new.append(nmtarg_ftr)
 
     # Save pkl file
-    vid_data = {'3D_points': objpoints_new, '2D_points': imgpoints_new, 'name_points': ret_names, 'name_targets': nam_targets, 'rt_vectors': vecs,
+    vid_data = {'3D_points': objpoints_new, '2D_points': imgpoints_new, 'name_points': ret_names, 'name_targets': nam_targets_new, 'rt_vectors': vecs,
                     'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img_shape, 'init_calibfile': calibfile}
     with open(dirfile[:-4]+'_filtered.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
