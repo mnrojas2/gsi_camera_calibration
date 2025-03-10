@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import numpy as np
 
 def read_cam_params(filename): 
