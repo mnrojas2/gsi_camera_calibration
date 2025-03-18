@@ -80,11 +80,12 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
                 cv.putText(img_copy, keys[i], values[i], cv.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 2)
     if save:
         # Create output folder if it wasn't created yet
-        if not os.path.exists('./sets/tracked_sets/'):
-            os.mkdir('./sets/tracked_sets/')
-        if not os.path.exists('./sets/tracked_sets/'+fdir):
-            os.mkdir('./sets/tracked_sets/'+fdir)
-        cv.imwrite(f'./sets/tracked_sets/{fdir}/{name}.jpg', img_copy)
+        ffolder, fvid = fdir.split('\\')
+        if not os.path.exists(ffolder+'/tracked_sets/'):
+            os.mkdir(ffolder+'/tracked_sets/')
+        if not os.path.exists(ffolder+'/tracked_sets/'+fvid):
+            os.mkdir(ffolder+'/tracked_sets/'+fvid)
+        cv.imwrite(f'{ffolder}/tracked_sets/{fvid}/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -309,8 +310,10 @@ else:
 # Initial process
 
 # Get images from directory
-print(f"Searching images in ./sets/{args.folder}/")
-images = sorted(glob.glob(f'./sets/{args.folder}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+frames_path = os.path.normpath(args.folder)
+print(f"Searching images in {frames_path}")
+
+images = sorted(glob.glob(f'{frames_path}/*.jpg'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
 
 ###############################################################################################################################
 # Image processing
@@ -428,7 +431,7 @@ for fname in images[start_frame:]:
             for kt in range(ct_corners.shape[0]):
                 circle = patches.Circle((ct_corners[kt,0,0], ct_corners[kt,0,1]), radius=24, edgecolor='r', facecolor='none')
                 ax.add_patch(circle)
-            plt.savefig('./sets/sets_code/'+ffname+'.jpg')
+            plt.savefig(f'{frames_path.split('\\')[0]}/sets_code/{ffname}.jpg')
             # plt.show() 
             plt.close()
         
@@ -488,7 +491,7 @@ for fname in images[start_frame:]:
     
     # Show or save frames with points
     if args.plot:
-        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True, fdir=args.folder)
+        displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True, fdir=frames_path)
 
     # Save 3D and 2D point data for calibration
     if not (args.halfway and start_frame == images.index(fname)):
@@ -523,9 +526,9 @@ if args.save:
     # Note: Data will not complete if argparse option '--halfway' is used.
     vid_data = {'3D_points': objpoints, '2D_points': imgpoints, 'name_points': ret_names, 'name_targets': tgt_names, 'rt_vectors': vecs,
                 'init_mtx': camera_matrix, 'init_dist': dist_coeff, 'img_shape': img0.shape[1::-1], 'init_calibfile': args.calibfile}
-    with open(f'./sets/{args.folder}_vidpoints.pkl', 'wb') as fp:
+    with open(f'{frames_path}_vidpoints.pkl', 'wb') as fp:
         pickle.dump(vid_data, fp)
-        print(f"Dictionary successfully saved as '{args.folder}_vidpoints.pkl'")
+        print(f"Dictionary successfully saved as '{frames_path}_vidpoints.pkl'")
 
 # When everything done, release the frames
 cv.destroyAllWindows()

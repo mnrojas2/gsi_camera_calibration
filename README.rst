@@ -9,11 +9,11 @@ CAMERA CALIBRATION GUIDE
 Description of the main files
 -----------------------------
 
- + get_frames.py: Script that takes all frames of a video and save them in a folder inside ./sets/.
+ + get_frames.py: Script that takes all frames of a video and save them in a folder with the same name and directory.
    - Just can just run this script, other arguments are not very important for now.
 
  + point_tracking.py: Script that tracks the position of some points and reproject them across all frames to get the rest. Then you can save the points on a "pkl" file (recommended for big sets of frames) or simply calculate the camera parameters right after getting all the points positions (recommended for small sets).
-   - There a "-p" (or "--plot") argument that prints every frame with every target marked on the image, inside the folder "./sets/tracked_sets/". This is useful to check if the tracking of the points is working correctly, as rarely the homography does not follow correctly the points for various reasons. 
+   - There a "-p" (or "--plot") argument that prints every frame with every target marked on the image, inside the folder "<folderdir>/tracked_sets/". This is useful to check if the tracking of the points is working correctly, as rarely the homography does not follow correctly the points for various reasons. 
    - The "pkl" file can only be created if the "-s" (or "--save") argument is on.
 
  + just_calibration.py: Script that takes one or more "pkl" files containing 3D and 2D positions of the targets and calculates the camera parameters based on them. It can also filter frames to reduce the amount of points to compute.
