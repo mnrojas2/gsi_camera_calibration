@@ -1,6 +1,7 @@
 sets/*
 **/__pycache__/
 **.MP4
+videos/**
 camera_projections**
 tests/
 !sets/targets/

@@ -14,8 +14,8 @@ from matplotlib import gridspec
 
 
 # Initialize parser
-parser = argparse.ArgumentParser(description='Reads yml files in ./results/ and generates histograms and exports data to Excel.')
-parser.add_argument('-in', '--folder', type=str, metavar='folder', default='', help='Name of the subdirectory containing the file. Folder must be inside ./results/ folder.')
+parser = argparse.ArgumentParser(description='Reads yml files in a folder and generates histograms and exports data to Excel.')
+parser.add_argument('folder', type=str, help='Name of the directory containing the yml files.')
 parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Exports data to .xlsx file.')
 
 
@@ -112,10 +112,7 @@ def main():
     args = parser.parse_args()
     
     # Get the yml files
-    if args.folder:
-        dir = f'./results/{args.folder}/*.yml'
-    else:
-        dir = './results/*.yml'
+    dir = os.path.normpath(args.folder) + '/*.yml'
     calibrationFiles = sorted(glob.glob(dir), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
     # Unpack all data from the files and save them in a dictionary
