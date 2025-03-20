@@ -8,7 +8,6 @@ import cv2 as cv
 import pickle
 import copy
 import camera
-from scipy.spatial.transform import Rotation as R 
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
 
@@ -50,8 +49,6 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
         cv.imwrite(f'{ffolder}/tracked_sets/{fvid}/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
-
-
 
 # Main
 def main():
