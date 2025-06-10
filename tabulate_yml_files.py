@@ -8,15 +8,9 @@ import re
 import pandas as pd
 import numpy as np
 import scipy
-import datetime
+import datetime as dt
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
-
-
-# Initialize parser
-parser = argparse.ArgumentParser(description='Reads yml files in a folder and generates histograms and exports data to Excel.')
-parser.add_argument('folder', type=str, help='Name of the directory containing the yml files.')
-parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Exports data to .xlsx file.')
 
 
 def df_histogram(dataframe, colname, *args, gauss_c=False, save_values=False):
@@ -108,12 +102,10 @@ def filter_dataframe(dataframe, *args):
 
 
 # Main
-def main():
-    args = parser.parse_args()
-    
+def tabulate_data(folder, save_excel=False, plot_hist=False, save_calibration=False):
     # Get the yml files
-    dir = os.path.normpath(args.folder) + '/*.yml'
-    calibrationFiles = sorted(glob.glob(dir), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+    dir = os.path.normpath(folder)
+    calibrationFiles = sorted(glob.glob(dir+'/*.yml'), key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
     
     # Unpack all data from the files and save them in a dictionary
     cc_data = {}
@@ -160,11 +152,15 @@ def main():
     # Plot the histogram
     hist_coeffs = df_histogram(df_complete, ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3'], (',', 'summary'), gauss_c=True, save_values=True)
     print(hist_coeffs)
-    plt.show()
     
-    if args.excel:
+    if plot_hist:
+        plt.show()
+    else:
+        plt.close()
+    
+    if save_excel:
         # Save the parameters in an excel file (Excel 2007 - xlsx)
-        date_today = str(datetime.datetime.now()).split('.')[0].replace('-', '').replace(':', '').replace(' ', '_')
+        date_today = str(dt.datetime.now()).split('.')[0].replace('-', '').replace(':', '').replace(' ', '_')
         
         df_dist = filter_dataframe(df_complete, ('Filter by distance,', '-sm'))
         df_time = filter_dataframe(df_complete, ('Filter by time,', '-sm'))
@@ -174,11 +170,69 @@ def main():
         df_time_full = pd.concat([df_time, df_time.describe()])
         df_pnts_full = pd.concat([df_pnts, df_pnts.describe()])
         
-        with pd.ExcelWriter(f'./results/camera_calibration_{date_today}.xlsx') as writer:
+        with pd.ExcelWriter(f'{dir}/calibration_{date_today}.xlsx') as writer:
             df_complete.to_excel(writer, sheet_name='Summary')
             df_dist_full.to_excel(writer, sheet_name='Filter by distance')
             df_time_full.to_excel(writer, sheet_name='Filter by time')
             df_pnts_full.to_excel(writer, sheet_name='Filter by time and points')
             
+    if save_calibration:
+        # Camera identification
+        cam_model = input('Introduce the camera model (e.g: Sony RX0-II): ')
+        cam_model_serial = input('Introduce the camera model (e.g: DSCRX0M2): ')
+        cam_serial_no = input('Introduce the camera serial number (e.g: 3178151): ') 
+        cam_name = input('Introduce the common name of the camera (e.g: C1_PUC): ')
+
+        # Calibration date
+        date = dt.date.today()
+        
+        # Calibration method
+        method = input('Introduce calibration method (e.g: wall, chessboard, circleboard, drone-<flight number>): ')
+
+        # Comments
+        comments = input('Introduce comments: ')
+        
+        # Save data in a file
+        with open(f"{dir}/{cam_model_serial}-{cam_serial_no}-{str(dt.date.today()).replace('-','')}-{method}.txt", "w") as f:
+            f.write("# Camera identification\n")
+            f.write(f"cam_model = '{cam_model}'\n")
+            f.write(f"cam_model_serial = '{cam_model_serial}'\n")
+            f.write(f"cam_serial_no = {cam_serial_no}\n")
+            f.write(f"cam_name = '{cam_name}'\n\n")
+
+            f.write("# Calibration date\n")
+            f.write(f"date = '{date}'\n\n")
+            
+            f.write("# Calibration method (wall, chessboard, circleboard, drone-<flight number>)\n")
+            f.write(f"method = '{method}'\n\n")
+
+            f.write("# Comments\n")
+            f.write(f"comments = \"{comments}\"\n\n")
+
+            f.write("# Calibration parameters\n")
+            f.write("# Camera matrix parameters\n")
+            f.write(f"fx = {fx}\n")
+            f.write(f"fy = {fy}\n")
+            f.write(f"cx = {cx}\n")
+            f.write(f"cy = {cy}\n\n")
+
+            f.write("# Distortion coefficient parameters\n")
+            f.write(f"k1 = {k1}\n")
+            f.write(f"k2 = {k2}\n")
+            f.write(f"p1 = {p1}\n")
+            f.write(f"p2 = {p2}\n")
+            f.write(f"k3 = {k3}\n")
+        f.close()
+
+
+if __name__=='__main__': 
+    # Initialize parser
+    parser = argparse.ArgumentParser(description='Reads yml files in a folder and generates histograms and exports data to Excel.')
+    parser.add_argument('folder', type=str, help='Name of the directory containing the yml files.')
+    parser.add_argument( '-e', '--excel', action='store_true', default=False, help='Exports data to .xlsx file.')
+    parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Enables plot of the resulting histogram.')
+    parser.add_argument( '-s', '--save', action='store_true', default=False, help='Exports data to camera_calibration format .txt file.')
     
-if __name__=='__main__': main()
+    args = parser.parse_args()
+    
+    tabulate_data(args.folder, args.excel, args.plot, args.save)

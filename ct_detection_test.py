@@ -32,7 +32,7 @@ def scan_for_cts(img):
     points = np.array(points)
     
     # Get the clusters of points when they are closer than 50 pixels and are at least 5 points.
-    db = DBSCAN(eps=50, min_samples=5).fit(points)
+    db = DBSCAN(eps=30, min_samples=5).fit(points)
     labels = db.labels_
     
     # Check every cluster and save only the onest 
@@ -47,6 +47,7 @@ def scan_for_cts(img):
         if len(cluster_points) <= 10:
             cluster_data.append(cluster_points)
             
+    # Get the central point (or closest to central) of each cluster
     centroids = []
     for cluster in cluster_data:
         c_idx = distance.cdist(cluster, [cluster.mean(axis=0)]).argmin()
@@ -97,9 +98,9 @@ for fname in images:
     thr = cv.adaptiveThreshold(img_l, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -96) #-64
     ct_centroids = scan_for_cts(thr)
     
-    plt.figure()
+    plt.figure(figsize=(30, 18))
     plt.imshow(thr)
-    plt.plot(ct_centroids[:,0], ct_centroids[:,1], '.')
+    plt.scatter(ct_centroids[:,0], ct_centroids[:,1])
     plt.savefig(f'{frames_path.split('\\')[0]}/sets_code/{frames_path.split('\\')[1]}{ffname}.jpg')
     plt.close()
     

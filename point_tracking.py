@@ -134,7 +134,7 @@ def scan_for_cts(img):
     points = np.array(points)
     
     # Get the clusters of points when they are closer than 50 pixels and are at least 5 points.
-    db = DBSCAN(eps=50, min_samples=5).fit(points)
+    db = DBSCAN(eps=30, min_samples=5).fit(points)
     labels = db.labels_
     
     # Check every cluster and save only the onest 
@@ -148,7 +148,8 @@ def scan_for_cts(img):
         # Filter clusters with maximum 10 points
         if len(cluster_points) <= 10:
             cluster_data.append(cluster_points)
-            
+
+    # Get the central point (or closest to central) of each cluster
     centroids = []
     for cluster in cluster_data:
         c_idx = distance.cdist(cluster, [cluster.mean(axis=0)]).argmin()
@@ -316,6 +317,8 @@ for fname in images[start_frame:]:
     # Applying threshold to find points
     thr = cv.adaptiveThreshold(img_l, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, -96) #-64
     
+    list_error_frames = []
+    
     ## Frame to frame reprojection
     if fname == images[start_frame]:  
         dummy = 'You dummy. Fix this thing!!! Ò_Ó'
@@ -370,6 +373,60 @@ for fname in images[start_frame:]:
         nn_ct_name = [ct_corners_names[i] for i in range(ct_corners_proy.shape[0]) if ct_corners_proy[i,0,0] > 0 and ct_corners_proy[i,0,1] > 0]
                 
         ct_corners_proy = np.array(nn_ct_proy)
+        
+        
+        ##############################
+        ct_detected = scan_for_cts(thr)
+        
+        ct_positioned = []
+        ct_closeness_threshold = 20
+        for ct_pt in ct_detected:
+            ct_pt_min = distance.cdist(ct_corners_proy[:,0,:], [ct_pt]).min()
+            if ct_pt_min < ct_closeness_threshold:
+                ct_positioned.append(ct_pt)
+        
+        if len(ct_positioned) <= 2:
+            list_error_frames.append(ffname)
+            # Reproject using detected points from scanning from codetargets as failsafe
+            # Get only the codetargets from ct_corners and ct_corners_names
+            
+            ct_corners_old = np.array([ct_corners[i] for i in range(ct_corners.shape[0]) if 'CODE' in ct_corners_names[i]])
+            ct_names_old = [item for item in ct_corners_names if 'CODE' in item]
+
+            # Correlate a codetarget with each detected point
+            ct_corners_detected = []
+            ct_names_detected = []
+            for ct_pt in ct_detected:
+                ct_idx = distance.cdist(ct_corners_old[:,0,:], [ct_pt]).argmin()
+                ct_corners_detected.append(ct_corners_old[ct_idx,0,:])
+                ct_names_detected.append(ct_names_old[ct_idx])
+            
+            ct_corners_detected = np.array(ct_corners_detected)
+            
+            # # Plot the positions (X,Y) as seen from Front
+            # plt.figure()
+            # plt.scatter(ct_detected[:,0], -ct_detected[:,1])
+            # plt.scatter(ct_corners_detected[:,0], -ct_corners_detected[:,1])
+            
+            # # Add text to name every point in the image
+            # for i, name in enumerate(ct_names_detected):
+            #     plt.text(ct_corners_detected[:,0][i], -ct_corners_detected[:,1][i], name, fontsize=9, ha='right')
+            #     plt.text(ct_detected[:,0][i], -ct_detected[:,1][i], name, fontsize=9, ha='right')
+            # plt.show()
+            
+            # Find homography matrix and do perspective transform to ct_points
+            M, mask = cv.findHomography(ct_corners_detected, ct_detected, cv.RANSAC, 5.0)
+            ct_corners_proy = cv.perspectiveTransform(ct_corners, M)
+            
+            # Remove CODETARGETS if reprojections are not inside the image
+            nn_ct_proy = [ct_corners_proy[i] for i in range(ct_corners_proy.shape[0]) if ct_corners_proy[i,0,0] > 0 and ct_corners_proy[i,0,1] > 0]
+            nn_ct_name = [ct_corners_names[i] for i in range(ct_corners_proy.shape[0]) if ct_corners_proy[i,0,0] > 0 and ct_corners_proy[i,0,1] > 0]
+            
+            # Esto puede suceder si no hay suficientes codetargets para poder determinar la proyección de las imágenes.
+            # Se necesitan agregar los puntos auxiliares, idealmente los ya elegidos inicialmente, el problema es identificarlos en la 2da imagen sin ORBS
+            
+            ct_corners_proy = np.array(nn_ct_proy)
+        ##############################
         ct_corners_names = nn_ct_name
         
         # Find the correct position of points using a small window and getting the highest value closer to the center.
@@ -430,8 +487,31 @@ for fname in images[start_frame:]:
     except:
         img3 = cv.drawMatches(img_old,kp1,img_gray,kp2,matches[:10],None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
         displayImage(img3)
+        
+        img00 = cv.imread('./sets/framebase.png')
+                
+        # Detect points in image
+        img_gray0 = cv.cvtColor(img00, cv.COLOR_BGR2GRAY)
+        img_lab = cv.cvtColor(img00, cv.COLOR_BGR2LAB)
+        
+        if args.gamma:
+            img_gray0 = adjust_gamma(img_lab[:,:,0], gamma=args.gamma)
+                
+        # Detect new position of CODETARGETS
+        kp10, des10 = orb.detectAndCompute(img_gray0,None) 
+        
+        # Match descriptors.
+        matches = bf.match(des10,des2)
+        dmatches = sorted(matches, key=lambda x:x.distance)
+        
+        src_pts = np.float32([kp10[m.queryIdx].pt for m in dmatches]).reshape(-1,1,2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in dmatches]).reshape(-1,1,2)
+        
+        img4 = cv.drawMatches(img_gray0,kp10,img_gray,kp2,matches,None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+        displayImage(img4)
+        print(','.join(list_error_frames))
         print(ffname, images.index(fname))
-        input('ctrl+c')
+        raise KeyboardInterrupt
     
     # Make simulated image with 3D points data
     points_2D = cv.projectPoints(points_3D, rvec, tvec, camera_matrix, dist_coeff)[0]
