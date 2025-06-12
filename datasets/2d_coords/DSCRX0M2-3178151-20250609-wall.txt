@@ -1,0 +1,28 @@
+# Camera identification
+cam_model = 'Sony RX0-II'
+cam_model_serial = 'DSCRX0M2'
+cam_serial_no = 3178151
+cam_name = 'C1_PUC'
+
+# Calibration date
+date = '2025-06-09'
+
+# Calibration method (wall, chessboard, circleboard, drone-<flight number>)
+method = 'wall'
+
+# Comments
+comments = "Calibration done with dataset generated during the nights of mid-december of 2024."
+
+# Calibration parameters
+# Camera matrix parameters
+fx = 2573.218357871917
+fy = 2573.3513885655534
+cx = 1952.9499107202764
+cy = 1085.2942796621046
+
+# Distortion coefficient parameters
+k1 = 0.028170617904017294
+k2 = -0.05928909352084651
+p1 = -0.00011451310378457853
+p2 = 0.0009265421694570179
+k3 = 0.05285242398845132
