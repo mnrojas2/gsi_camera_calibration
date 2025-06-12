@@ -177,6 +177,18 @@ def tabulate_data(folder, save_excel=False, plot_hist=False, save_calibration=Fa
             df_pnts_full.to_excel(writer, sheet_name='Filter by time and points')
             
     if save_calibration:
+        # Get average and standard deviation data
+        calib_params = hist_coeffs.to_numpy()
+        fx, fx_std = calib_params[0,:]
+        fy, fy_std = calib_params[1,:]
+        cx, cx_std = calib_params[2,:]
+        cy, cy_std = calib_params[3,:]
+        k1, k1_std = calib_params[4,:]
+        k2, k2_std = calib_params[5,:]
+        p1, p1_std = calib_params[6,:]
+        p2, p2_std = calib_params[7,:]
+        k3, k3_std = calib_params[8,:]
+        
         # Camera identification
         cam_model = input('Introduce the camera model (e.g: Sony RX0-II): ')
         cam_model_serial = input('Introduce the camera model (e.g: DSCRX0M2): ')
@@ -221,7 +233,19 @@ def tabulate_data(folder, save_excel=False, plot_hist=False, save_calibration=Fa
             f.write(f"k2 = {k2}\n")
             f.write(f"p1 = {p1}\n")
             f.write(f"p2 = {p2}\n")
-            f.write(f"k3 = {k3}\n")
+            f.write(f"k3 = {k3}\n\n")
+            
+            f.write("# Errors in camera parameters\n")
+            f.write(f"fx_std = {fx_std}\n")
+            f.write(f"fy_std = {fy_std}\n")
+            f.write(f"cx_std = {cx_std}\n")
+            f.write(f"cy_std = {cy_std}\n\n")
+            
+            f.write(f"k1_std = {k1_std}\n")
+            f.write(f"k2_std = {k2_std}\n")
+            f.write(f"p1_std = {p1_std}\n")
+            f.write(f"p2_std = {p2_std}\n")
+            f.write(f"k3_std = {k3_std}\n")
         f.close()
 
 

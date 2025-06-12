@@ -11,7 +11,6 @@ import re
 import copy
 import pickle
 import random
-import datetime as dt
 import camera
 from tqdm import tqdm
 from matplotlib import pyplot as plt
