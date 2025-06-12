@@ -30,7 +30,7 @@ parser.add_argument('data_2d', type=str, help='Name of the file containing the 2
 parser.add_argument('-gm', '--gamma', type=float, default=False, help='Gamma correction')
 parser.add_argument('-cb', '--calibfile', type=str, metavar='file', help='Name of the file containing calibration results (*.txt), for point reprojection and/or initial guess during calibration.')
 parser.add_argument('-hf', '--halfway', type=str, metavar='target_data', help='Last part of the name of the file containing target data to restart tracking process from any frame.')
-parser.add_argument( '-s', '--save', action='store_true', default=False, help='Saves TARGET position data in .txt format as well as vectors of the 3D and 2D points for calibration.')
+parser.add_argument('-st', '--save_tracked', action='store_true', default=False, help='Saves all frames with their respective tracked points in a created subfolder.')
 parser.add_argument( '-p', '--plot', action='store_true', default=False, help='Shows plots of every frame with image points and projected points.')
 
 ###############################################################################################################################
@@ -67,11 +67,9 @@ def displayImageWPoints(img, *args, name='Image', show_names=False, save=False, 
     if save:
         # Create output folder if it wasn't created yet
         ffolder, fvid = fdir.split('\\')
-        if not os.path.exists(ffolder+'/tracked_sets/'):
-            os.mkdir(ffolder+'/tracked_sets/')
-        if not os.path.exists(ffolder+'/tracked_sets/'+fvid):
-            os.mkdir(ffolder+'/tracked_sets/'+fvid)
-        cv.imwrite(f'{ffolder}/tracked_sets/{fvid}/{name}.jpg', img_copy)
+        if not os.path.exists(f"{ffolder}/{fvid}/tracked/"):
+            os.mkdir(f"{ffolder}/{fvid}/tracked/")
+        cv.imwrite(f'{ffolder}/{fvid}/tracked/{name}.jpg', img_copy)
     else:
         displayImage(img_copy, name=name)
     
@@ -560,7 +558,7 @@ for fname in images[start_frame:]:
     if args.plot:
         # Plot only
         displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=False, fdir=frames_path)
-    elif args.save:
+    elif args.save_tracked:
         # Save only
         displayImageWPoints(img0, df_corners, name=ffname, show_names=True, save=True, fdir=frames_path)
 
