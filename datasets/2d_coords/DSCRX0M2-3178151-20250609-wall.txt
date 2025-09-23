@@ -5,7 +5,8 @@ cam_serial_no = 3178151
 cam_name = 'C1_PUC'
 
 # Calibration date
-date = '2025-06-09
+date = '2025-06-09'
+
 # Calibration method (wall, chessboard, circleboard, drone-<flight number>)
 method = 'wall'
 
