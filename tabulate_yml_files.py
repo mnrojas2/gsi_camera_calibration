@@ -248,6 +248,7 @@ def tabulate_data(folder, save_excel=False, plot_hist=False, save_calibration=Fa
             f.write(f"k3_std = {k3_std}\n")
         f.close()
 
+    return hist_coeffs
 
 if __name__=='__main__': 
     # Initialize parser
@@ -259,4 +260,5 @@ if __name__=='__main__':
     
     args = parser.parse_args()
     
-    tabulate_data(args.folder, args.excel, args.plot, args.save)
+    data_coeffs = tabulate_data(args.folder, args.excel, args.plot, args.save)
+    print(data_coeffs)
